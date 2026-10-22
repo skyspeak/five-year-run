@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="en">
+<meta name="description" content="Don't know what you want? Five Year Run simulates 1,000 versions of your next five years across first jobs, gap years, master's degrees and cities, shows what it found, then lets you play the most promising lives yourself.">
+<meta property="og:title" content="Five Year Run">
+<meta property="og:description" content="We ran 1,000 versions of your next five years. Here's what we found.">
+<meta name="theme-color" content="#121A2B">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23E2492F'/%3E%3Ctext x='16' y='21' font-family='Arial,sans-serif' font-weight='800' font-size='13' text-anchor='middle' fill='white'%3E5Y%3C/text%3E%3C/svg%3E">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five Year Run</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a transit map. Each life is a line of five stations (years), read left to right.
+   One centered column; the HUD is pinned at the top like a departure board. */
+:root{
+  --bg:#ECEFF4; --surface:#FFFFFF; --surface-2:#F5F7FA; --ink:#101828; --muted:#5B6578; --rule:#D3D9E3;
+  --board:#121A2B; --board-ink:#EEF2F8; --board-muted:#93A0B8; --board-track:#2A3550;
+  --job:#2459E0; --gap:#DB8E00; --study:#8240E0; --go:#E2492F; --on-go:#FFFFFF;
+  --good:#13865A; --bad:#C93A30; --good-bg:#DDF3E9; --bad-bg:#FBE3E0;
+  --f-display:'Bricolage Grotesque','Avenir Next',system-ui,sans-serif;
+  --f-body:'Instrument Sans','Helvetica Neue',system-ui,sans-serif;
+  --f-mono:'DM Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1019; --surface:#141C2C; --surface-2:#1A2337; --ink:#E8EDF5; --muted:#94A1B9; --rule:#2A3550;
+    --board:#1B2539; --board-ink:#EEF2F8; --board-muted:#93A0B8; --board-track:#33405E;
+    --job:#5B8CFF; --gap:#C4861F; --study:#9468F2; --go:#FF6A47; --on-go:#160B07;
+    --good:#45C98F; --bad:#FF7468; --good-bg:#12352A; --bad-bg:#3E1C1B; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1019; --surface:#141C2C; --surface-2:#1A2337; --ink:#E8EDF5; --muted:#94A1B9; --rule:#2A3550;
+  --board:#1B2539; --board-ink:#EEF2F8; --board-muted:#93A0B8; --board-track:#33405E;
+  --job:#5B8CFF; --gap:#C4861F; --study:#9468F2; --go:#FF6A47; --on-go:#160B07;
+  --good:#45C98F; --bad:#FF7468; --good-bg:#12352A; --bad-bg:#3E1C1B; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--board)}
+button{font:inherit;color:inherit}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 64px;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-0.01em}
+p{margin:0}
+.kicker{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono)}
+:focus-visible{outline:3px solid var(--go);outline-offset:2px;border-radius:6px}
+
+/* brand */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:-0.01em}
+.bullet{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--go);color:var(--on-go);font-family:var(--f-display);font-weight:800;font-size:14px}
+.linkbtn{background:none;border:0;padding:6px 0;color:var(--muted);font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:hover{color:var(--ink)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:13px 20px;font-weight:600;font-size:16px;cursor:pointer;border:2px solid transparent;text-decoration:none;transition:transform .12s ease, background .12s ease}
+.btn.go{background:var(--go);color:var(--on-go)}
+.btn.go:hover{transform:translateY(-1px)}
+.btn.go:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.ghost{background:transparent;border-color:var(--rule);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+
+/* hero */
+.hero{display:flex;flex-direction:column;gap:16px;padding-top:20px}
+.hero h1{font-size:clamp(40px,8vw,72px);font-weight:800;line-height:.98}
+.hero h1 span{color:var(--go)}
+.lede{font-size:18px;max-width:58ch;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.h-sm{font-size:20px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:22px;height:6px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.steps div{display:flex;flex-direction:column;gap:4px}
+.steps b{font-family:var(--f-mono);font-size:12px;color:var(--go)}
+.steps strong{font-family:var(--f-display);font-size:17px}
+.steps p{font-size:14px;color:var(--muted)}
+@media (max-width:640px){.steps{grid-template-columns:1fr 1fr}}
+
+/* route map */
+.map{overflow-x:auto;margin-inline:-4px}
+.map svg{display:block;min-width:600px;width:100%;height:auto}
+.map .seg{stroke-width:10;stroke-linecap:round;fill:none}
+.map .seg.job{stroke:var(--job)} .map .seg.gap{stroke:var(--gap)} .map .seg.study{stroke:var(--study)}
+.map .stn{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+.map .code{font-family:var(--f-mono);font-size:12px;font-weight:500;fill:var(--ink)}
+.map .lbl{font-family:var(--f-body);font-size:11px;fill:var(--muted)}
+.map .nm{font-family:var(--f-display);font-weight:700;font-size:14px;fill:var(--ink)}
+.map .yr{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+
+/* setup form */
+.form{display:flex;flex-direction:column;gap:24px}
+.field{display:flex;flex-direction:column;gap:10px}
+.field > label,.field > .q{font-family:var(--f-display);font-weight:700;font-size:18px}
+.field .hint{font-size:14px;color:var(--muted);margin-top:-6px}
+.input{font:inherit;font-size:17px;padding:12px 14px;border-radius:10px;border:2px solid var(--rule);background:var(--surface);color:var(--ink);max-width:320px;width:100%}
+.input:focus{border-color:var(--ink);outline:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid var(--rule);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:15px;cursor:pointer;transition:border-color .12s}
+.chip:hover{border-color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* HUD */
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--board);color:var(--board-ink);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:14px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
+@media (min-width:900px){.hud{margin-inline:0;border-radius:14px;padding-inline:20px}}
+.hud-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.hud-id{display:flex;align-items:center;gap:10px;min-width:0}
+.hud-id .who{font-family:var(--f-display);font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-id .where{font-family:var(--f-mono);font-size:12px;color:var(--board-muted)}
+.years{display:flex;align-items:center;gap:0}
+.years span{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;border:2px solid var(--board-track);color:var(--board-muted);background:var(--board);position:relative}
+.years span + span{margin-left:14px}
+.years span + span::before{content:"";position:absolute;right:100%;top:50%;width:16px;height:3px;transform:translateY(-50%);background:var(--board-track)}
+.years span.done{border-color:var(--board-ink);color:var(--board-ink)}
+.years span.now{background:var(--go);border-color:var(--go);color:var(--on-go)}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px 16px}
+@media (max-width:640px){.stats{grid-template-columns:repeat(3,1fr)}}
+.stat{display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .k{display:flex;justify-content:space-between;font-size:12px;color:var(--board-muted)}
+.stat .k b{font-family:var(--f-mono);font-weight:500;color:var(--board-ink)}
+.bar{height:6px;border-radius:3px;background:var(--board-track);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--board-ink);border-radius:3px;transition:width .5s ease}
+.bar i.low{background:var(--go)}
+.cash b{font-family:var(--f-mono);font-size:18px;font-weight:500;color:var(--board-ink)}
+.cash b.neg{color:var(--go)}
+
+/* cards & choices */
+.stage{display:flex;flex-direction:column;gap:18px}
+.stage h2{font-size:clamp(28px,5vw,40px);font-weight:800;line-height:1.05}
+.event{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;animation:rise .35s ease both}
+.event .txt{font-size:18px;max-width:60ch}
+@keyframes rise{from{transform:translateY(8px);opacity:.4}to{transform:none;opacity:1}}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;vertical-align:-1px}
+.dot.job{background:var(--job)} .dot.gap{background:var(--gap)} .dot.study{background:var(--study)}
+.choices{display:flex;flex-direction:column;gap:10px}
+.choice{display:flex;gap:14px;align-items:flex-start;text-align:left;background:var(--surface-2);border:2px solid var(--rule);border-radius:12px;padding:14px 16px;cursor:pointer;font-size:16px;transition:border-color .12s, transform .12s}
+.choice:hover{border-color:var(--ink);transform:translateX(2px)}
+.choice .ltr{font-family:var(--f-mono);font-size:13px;width:24px;height:24px;flex:none;border-radius:6px;display:grid;place-items:center;background:var(--ink);color:var(--bg)}
+.choice .odds{display:block;font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:2px}
+.outcome{display:flex;flex-direction:column;gap:12px;border-top:1px dashed var(--rule);padding-top:16px}
+.outcome .you{font-size:14px;color:var(--muted)}
+.outcome .res{font-size:18px;font-weight:500}
+.rollnote{font-family:var(--f-mono);font-size:13px;padding:4px 10px;border-radius:6px;align-self:flex-start}
+.rollnote.win{background:var(--good-bg);color:var(--good)} .rollnote.lose{background:var(--bad-bg);color:var(--bad)}
+.deltas{display:flex;flex-wrap:wrap;gap:6px}
+.d{font-family:var(--f-mono);font-size:13px;padding:3px 9px;border-radius:999px;animation:pop .4s ease both}
+.d.up{background:var(--good-bg);color:var(--good)} .d.down{background:var(--bad-bg);color:var(--bad)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:none;opacity:1}}
+
+/* option grids */
+.group{display:flex;flex-direction:column;gap:12px}
+.group h3{font-size:15px;font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.opt{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--surface);border:2px solid var(--rule);border-radius:14px;padding:16px;cursor:pointer;transition:border-color .12s, transform .12s;min-width:0}
+.opt:hover:not(:disabled){border-color:var(--ink);transform:translateY(-2px)}
+.opt:disabled{cursor:not-allowed;opacity:.5}
+.opt .nm{font-family:var(--f-display);font-weight:700;font-size:19px;line-height:1.15}
+.opt .bl{font-size:14px;color:var(--muted)}
+.opt .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:4px}
+.tag{font-family:var(--f-mono);font-size:12px;padding:3px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--rule)}
+.tag.cur{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.opt .code{font-family:var(--f-mono);font-size:28px;font-weight:500;line-height:1}
+.notice{background:var(--bad-bg);color:var(--bad);border-radius:10px;padding:12px 14px;font-size:15px}
+.notice.ok{background:var(--good-bg);color:var(--good)}
+
+/* apply */
+.apply{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:24px;display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center}
+@media (max-width:640px){.apply{grid-template-columns:1fr}}
+.dial{aspect-ratio:1;max-width:200px;width:100%;border-radius:50%;display:grid;place-items:center;text-align:center;background:conic-gradient(var(--good) calc(var(--p)*1%), var(--surface-2) 0);position:relative}
+.dial::after{content:"";position:absolute;inset:14px;border-radius:50%;background:var(--surface)}
+.dial div{position:relative;z-index:1;display:flex;flex-direction:column}
+.dial b{font-family:var(--f-mono);font-size:44px;font-weight:500;line-height:1}
+.dial small{font-size:12px;color:var(--muted)}
+.dial.rolling b{color:var(--muted)}
+.dial.win b{color:var(--good)} .dial.lose b{color:var(--bad)}
+.breakdown{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.breakdown div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--rule);padding-bottom:5px}
+.breakdown span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ledger */
+.ledger{display:flex;flex-direction:column;gap:0;font-variant-numeric:tabular-nums}
+.ledger div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.ledger div span:last-child{font-family:var(--f-mono)}
+.ledger div.total{border-bottom:0;font-weight:600;font-size:18px}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+/* ending */
+.verdict{display:flex;flex-direction:column;gap:10px}
+.verdict h2{font-size:clamp(40px,8vw,64px);font-weight:800;line-height:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+.vals{display:flex;flex-direction:column;gap:8px}
+.vrow{display:grid;grid-template-columns:90px 1fr 28px;gap:10px;align-items:center;font-size:14px}
+.vrow .bar{height:10px;background:var(--surface-2)}
+.vrow .bar i{background:var(--muted)}
+.vrow.top .bar i{background:var(--go)}
+.vrow.top span:first-child{font-weight:600}
+.vrow span:last-child{font-family:var(--f-mono);text-align:right;color:var(--muted)}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.ach div{border:1px solid var(--rule);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.ach div.got{background:var(--surface-2);border-color:var(--ink)}
+.ach div:not(.got){opacity:.45}
+.ach strong{font-family:var(--f-display);font-size:15px}
+.ach span{font-size:13px;color:var(--muted)}
+.tries{display:flex;flex-direction:column;gap:14px;margin:0;padding:0;list-style:none}
+.tries li{display:flex;flex-direction:column;gap:2px;padding-left:18px;border-left:3px solid var(--go)}
+.tries strong{font-weight:600}
+.tries span{color:var(--muted);font-size:15px}
+.highlights{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.highlights{grid-template-columns:1fr}}
+.highlights div{background:var(--surface-2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.highlights strong{font-family:var(--f-display);font-size:17px}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums;min-width:520px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font-family:var(--f-mono);font-weight:500;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+td.num{font-family:var(--f-mono);text-align:right} th.num{text-align:right}
+td.best{color:var(--good);font-weight:600}
+.story-text{font-size:18px;line-height:1.65;max-width:62ch;white-space:pre-wrap}
+/* simulations */
+.simrun h2 .mono{font-weight:500}
+.simtrack{height:14px;border-radius:7px;background:var(--surface);border:1px solid var(--rule);overflow:hidden}
+.simtrack i{display:block;height:100%;background:linear-gradient(90deg,var(--job),var(--study),var(--gap));transition:width .1s linear}
+.simpeek{font-size:13px;min-height:2.6em}
+.found{font-size:clamp(34px,6.5vw,56px);font-weight:800;line-height:1.02}
+.found span{color:var(--go)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:640px){.tiles{grid-template-columns:1fr 1fr}}
+.tiles div{background:var(--board);color:var(--board-ink);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px}
+.tiles b{font-family:var(--f-mono);font-weight:500;font-size:clamp(26px,4.5vw,34px);line-height:1;font-variant-numeric:tabular-nums}
+.tiles span{font-size:13px;color:var(--board-muted)}
+.findings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.findings{grid-template-columns:1fr}}
+.findings h3{font-size:18px;font-weight:700}
+.findings p{font-size:15px;color:var(--muted)}
+.scatter svg{min-width:560px}
+.scatter .grid{stroke:var(--rule);stroke-width:1}
+.scatter .zero{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4}
+.scatter .ax{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.scatter .pt{fill-opacity:.55;stroke:var(--surface);stroke-width:1}
+.scatter .pt.job{fill:var(--job)} .scatter .pt.gap{fill:var(--gap)} .scatter .pt.study{fill:var(--study)}
+.scatter .pt:hover{fill-opacity:1;stroke:var(--ink);stroke-width:2}
+.ylab{font-size:11px;color:var(--muted);margin-bottom:-10px}
+table.rank tr.lead td:first-child{font-weight:600}
+.barcell{display:flex;align-items:center;gap:8px;min-width:150px}
+.hbar{flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.hbar i{display:block;height:100%;border-radius:0 4px 4px 0}
+.hbar i.job{background:var(--job)} .hbar i.gap{background:var(--gap)} .hbar i.study{background:var(--study)} .hbar i.neutral{background:var(--muted)}
+.stackbtns{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.stackbtns .btn{font-size:15px;padding:10px 14px;text-align:left}
+.vs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:640px){.vs{grid-template-columns:1fr 1fr}}
+.vs div{display:flex;flex-direction:column;gap:2px}
+.vs b{font-family:var(--f-mono);font-weight:500;font-size:26px}
+.vs span{font-size:13px;color:var(--muted)}
+.take{border:2px solid var(--go)}
+.writing{display:flex;gap:8px;padding-block:6px}
+.writing i{width:12px;height:12px;border-radius:50%;background:var(--go);animation:blink 1.2s ease-in-out infinite}
+.writing i:nth-child(2){animation-delay:.2s;background:var(--gap)} .writing i:nth-child(3){animation-delay:.4s;background:var(--study)}
+@keyframes blink{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:none}}
+.confirm{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+/* ---------- content ---------- */
+const VALUES={money:'Money',freedom:'Freedom',impact:'Impact',mastery:'Mastery',people:'People',adventure:'Adventure'};
+const STATS=[['skill','Skills'],['joy','Joy'],['energy','Energy'],['network','Network'],['clarity','Clarity']];
+const KIND={job:'Job',gap:'Gap year',study:"Master's"};
+const STAGES={finishing:{label:'Finishing my degree',age:21},grad:{label:'Just graduated',age:22},working:{label:"A year into a job I'm unsure about",age:24}};
+const FIELDS={stem:'STEM',business:'Business & Econ',humanities:'Humanities',social:'Social Sciences',arts:'Arts & Design'};
+const DEBTS={none:{label:'None',amt:0},some:{label:'Some (~$20k)',amt:20},lots:{label:'A lot (~$60k)',amt:60}};
+const TUITION={us:45,ca:24,uk:30,eu:4,asia:26,latam:8,home:18};
+const LANG={BER:'German',LIS:'Portuguese',TYO:'Japanese',MEX:'Spanish'};
+
+const CITIES=[
+ {id:'NYC',name:'New York',region:'us',col:38,sal:1.15,fx:{joy:2,energy:-4,network:6},v:['money'],vibe:'Fast, loud, everyone networks at brunch.'},
+ {id:'SFO',name:'San Francisco',region:'us',col:40,sal:1.2,fx:{joy:1,energy:-2,network:6},v:['money','mastery'],vibe:'Tech money, fog, a startup at every table.'},
+ {id:'AUS',name:'Austin',region:'us',col:26,sal:0.95,fx:{joy:4,network:3},v:[],vibe:'Tacos, live music, a growing tech scene.'},
+ {id:'YYZ',name:'Toronto',region:'ca',col:28,sal:0.8,fx:{joy:2,network:3},v:[],vibe:'Big-city jobs, kinder pace, brutal Februaries.'},
+ {id:'LON',name:'London',region:'uk',col:32,sal:0.9,fx:{joy:1,energy:-2,network:5},v:['money'],vibe:'Finance, media and pubs. Grey skies included.'},
+ {id:'BER',name:'Berlin',region:'eu',col:22,sal:0.7,fx:{joy:5,energy:1,network:3},v:['freedom'],vibe:'Creative, affordable, near-free universities.'},
+ {id:'LIS',name:'Lisbon',region:'eu',col:17,sal:0.5,fx:{joy:6,energy:3,network:2},v:['adventure'],vibe:'Sunny, hilly, full of remote workers.'},
+ {id:'SIN',name:'Singapore',region:'asia',col:30,sal:0.95,fx:{joy:1,network:5},v:['money','adventure'],vibe:'Gateway to Asia. Hot, safe, efficient.'},
+ {id:'TYO',name:'Tokyo',region:'asia',col:24,sal:0.7,fx:{joy:4,energy:-1,network:2},v:['adventure'],vibe:'Huge, orderly, endlessly interesting.'},
+ {id:'MEX',name:'Mexico City',region:'latam',col:13,sal:0.4,fx:{joy:6,energy:1,network:2},v:['adventure'],vibe:'Low cost, great food, a lively scene.'},
+ {id:'HOM',name:'Hometown',region:'home',col:8,sal:0.75,fx:{joy:-1,energy:4,network:-2},v:['people'],vibe:'Your old bedroom. Free rent, many opinions.'},
+];
+
+const PATHS={
+ bigtech:{kind:'job',name:'Big Tech',role:'Associate PM',pay:120,odds:28,fit:['stem'],fx:{skill:8,energy:-3,network:6},v:['money','mastery'],blurb:'Great pay and perks. Slow-moving teams.'},
+ startup:{kind:'job',name:'Seed-stage Startup',role:'Employee #9',pay:75,odds:50,fit:['stem','business'],fx:{skill:12,joy:3,energy:-8,network:5},v:['mastery','freedom'],blurb:'Learn ten jobs at once. Might not exist next year.'},
+ consult:{kind:'job',name:'Consulting',role:'Business Analyst',pay:100,odds:28,fit:['business','stem','social'],fx:{skill:10,joy:-2,energy:-10,network:10},v:['money','people'],blurb:'See many industries fast. Live out of a carry-on.'},
+ finance:{kind:'job',name:'Investment Bank',role:'Analyst',pay:115,odds:25,fit:['business','stem'],fx:{skill:9,joy:-4,energy:-13,network:8},v:['money'],blurb:'Highest pay on the board. Highest hours too.'},
+ nonprofit:{kind:'job',name:'Nonprofit',role:'Program Coordinator',pay:48,odds:60,fit:['social','humanities'],fx:{skill:5,joy:6,energy:-2,network:4},v:['impact','people'],blurb:'Mission first. Budget second, third and fourth.'},
+ teach:{kind:'job',name:'Teaching Fellowship',role:'Teaching Fellow',pay:45,odds:62,fit:['humanities','social','stem'],fx:{skill:6,joy:5,energy:-7,network:3},v:['impact','people'],blurb:'Thirty teenagers. Exhausting and unforgettable.'},
+ creative:{kind:'job',name:'Creative Studio',role:'Junior Designer',pay:55,odds:45,fit:['arts','humanities'],fx:{skill:8,joy:6,energy:-4,network:4},v:['freedom','mastery'],blurb:'Make things people see. Clients have notes.'},
+ gov:{kind:'job',name:'Public Service',role:'Policy Analyst',pay:62,odds:52,fit:['social','humanities','business'],fx:{skill:5,joy:2,energy:2,network:4},v:['impact'],blurb:'Stable, sane hours, slow but real change.'},
+ founder:{kind:'job',name:'Start Your Own Thing',role:'Founder',pay:12,odds:100,fit:[],fx:{skill:14,joy:4,energy:-10,network:6},v:['freedom','mastery'],blurb:'No boss, no salary, no excuses.'},
+ temp:{kind:'job',name:'Whatever Pays Rent',role:'Barista & temp',pay:34,odds:100,fit:[],fx:{skill:1,joy:-2,energy:-2,network:1},v:[],blurb:'Always hiring. Buys you time to think.'},
+ abroad:{kind:'gap',name:'Work & Travel',role:'Working-holiday wanderer',income:24,costMult:0.75,fx:{skill:3,joy:10,energy:5,network:4,clarity:7},v:['adventure','freedom'],blurb:'Pour coffee in a new country. Meet everyone.'},
+ volunteer:{kind:'gap',name:'Volunteer Program',role:'Volunteer',income:6,costMult:0.5,fx:{skill:4,joy:8,network:4,clarity:7},v:['impact','adventure'],blurb:'Room, board and a cause. Very little cash.'},
+ project:{kind:'gap',name:'Build a Side Project',role:'Indie maker',income:2,costMult:1,fx:{skill:10,joy:4,energy:-2,network:2,clarity:7},v:['mastery','freedom'],blurb:'A year to make the thing you keep talking about.'},
+ seasonal:{kind:'gap',name:'Seasonal Gigs',role:'Ski-lift operator',income:20,costMult:0.6,fx:{skill:1,joy:9,energy:8,network:3,clarity:6},v:['adventure'],blurb:'Ski resorts in winter, festivals in summer.'},
+ home:{kind:'gap',name:'Move Home & Reset',role:'Professional napper',income:10,costMult:1,fx:{skill:2,joy:-1,energy:12,network:-1,clarity:7},v:['people'],blurb:'Cheap and restful. Your parents will ask questions.',city:'HOM'},
+ mscs:{kind:'study',name:'MSc Computer Science',role:'CS grad student',years:2,tuition:1,odds:50,fit:['stem'],fx:{skill:14,energy:-5,network:5},v:['mastery'],blurb:'Two years of hard problems. Strong job market after.'},
+ mim:{kind:'study',name:'Master in Management',role:'MiM student',years:1,tuition:1.3,odds:55,fit:['business','social'],fx:{skill:6,joy:4,energy:-3,network:14},v:['money','people'],blurb:'Business school for people without work experience.'},
+ mpp:{kind:'study',name:'Master of Public Policy',role:'Policy grad student',years:2,tuition:0.9,odds:58,fit:['social','humanities'],fx:{skill:9,joy:3,energy:-3,network:8},v:['impact'],blurb:'Learn how governments actually work.'},
+ design:{kind:'study',name:'MA Design',role:'Design grad student',years:1,tuition:1.1,odds:52,fit:['arts'],fx:{skill:10,joy:6,energy:-4,network:6},v:['freedom','mastery'],blurb:'Studio crits, a portfolio, many all-nighters.'},
+ climate:{kind:'study',name:'MSc Climate & Environment',role:'Climate grad student',years:2,tuition:0.9,odds:58,fit:['stem','social'],fx:{skill:10,joy:4,energy:-3,network:6},v:['impact','mastery'],blurb:'Train for the problem of the century.'},
+};
+
+/* events: ch = choices. fx = stat effects (cash in $k). v = values the choice reveals. roll = a chance outcome. */
+const FORCED=[
+ {id:'burnout',when:s=>s.stats.energy<25,flag:'burnout',title:'Running on fumes',text:s=>`You fell asleep on the ${s.city==='HOM'?'couch':'train'} again. Your body is sending invoices.`,ch:[
+  {t:'Take two weeks completely off',fx:{cash:-1.5,energy:22,joy:5,clarity:4},v:['freedom'],out:'You sleep 11 hours a night for a week. Then you start noticing birds.'},
+  {t:"Push through. It's just a phase.",v:['mastery','money'],roll:{p:0.4,win:{fx:{skill:5,energy:-4},out:"You make it out the other side, barely. Nobody noticed. That's the problem."},lose:{fx:{energy:-8,joy:-10,skill:-3},out:'You get sick for a month. The work waits. It always waits.'}}},
+  {t:'Talk to a therapist',fx:{cash:-1.2,energy:12,joy:6,clarity:10},v:['people'],out:'Turns out "I don\'t know what I want" has a few layers. Useful ones.'}]},
+ {id:'broke',when:s=>s.stats.cash<-45,title:'The bank app is red',text:s=>`You owe about $${Math.round(-s.stats.cash)}k. The minimum payments are starting to bite.`,ch:[
+  {t:'Pick up weekend shifts',fx:{cash:6,energy:-10,joy:-3},v:['money'],out:'Saturdays now smell like espresso and spreadsheets.'},
+  {t:'Move somewhere cheaper',fx:{cash:4,joy:-4,energy:-2},v:['money'],out:'Smaller room, longer commute, lighter chest.'},
+  {t:'Ask your family for help',fx:{cash:5,joy:-2,clarity:3},v:['people'],out:"It's an awkward call. It's also a kind one."}]},
+];
+
+const GEN=[
+ {id:'groupchat',title:'The group chat',text:'Three friends posted big news this week: a promotion, an engagement and a PhD offer. You posted a photo of your lunch.',ch:[
+  {t:'Mute it and get on with your life',fx:{energy:3,joy:-1,clarity:3},v:['mastery'],out:'Quiet helps. You notice you were comparing yourself to highlight reels.'},
+  {t:'Call the friend who seems happiest',fx:{joy:5,network:2,clarity:5},v:['people'],out:"They admit they're guessing too. You both feel better."},
+  {t:'Scroll LinkedIn until 2am',fx:{energy:-6,joy:-4,clarity:3},v:['money'],out:"You learn 40 job titles you don't understand. One of them sounds interesting."}]},
+ {id:'wedding',when:s=>s.city!=='LIS',title:'A wedding in Portugal',text:'Your college roommate is getting married on a cliff. Flights alone are $900.',ch:[
+  {t:'Book the flight',fx:{cash:-2.5,joy:8,network:3,energy:2},v:['people','adventure'],out:'You dance badly and meet a founder at the open bar. Worth it.'},
+  {t:'Send a generous gift instead',fx:{cash:-0.4,joy:-2},v:['money'],out:'The photos look incredible. You look at them a lot.'}]},
+ {id:'parents',title:'"So what do you actually do?"',text:'Your parent asks over dinner. Your aunt is listening. So is the dog.',ch:[
+  {t:'Explain it properly, slowly',fx:{clarity:7,joy:2},v:['people'],out:"Saying it out loud, you hear which parts you're proud of and which parts you skip."},
+  {t:'"It\'s complicated."',fx:{joy:-2},v:[],out:'The dog looks disappointed too.'},
+  {t:'Ask what they wanted at your age',fx:{clarity:5,joy:4},v:['people'],out:'They wanted to be a pilot. You never knew. The rest of dinner is different.'}]},
+ {id:'recruiter',title:'A recruiter in your DMs',text:'"Hi! Your profile caught my eye for a role in a totally different field." It\'s a sales job at a climate company.',ch:[
+  {t:'Take the call, just to see',fx:{clarity:6,network:3,energy:-1},v:['freedom'],out:"You don't take the job, but the questions they asked stick with you."},
+  {t:'Ignore it',fx:{},v:[],out:'Inbox zero. Mind, less so.'},
+  {t:'Ask for an intro to their product team',fx:{network:5},v:['mastery'],out:'Bold. They actually do it.'}]},
+ {id:'running',title:'The running club',text:'A friend keeps inviting you to a 6am run club. They have matching shirts.',ch:[
+  {t:'Join. Buy the shirt.',fx:{energy:9,joy:3,network:3},v:['people'],out:'Six weeks in, you can run 10k and know twelve new people by name.'},
+  {t:'Sleep in',fx:{energy:2,joy:1},v:['freedom'],out:'Sleep is also a sport.'}]},
+ {id:'teeth',title:'Your tooth has opinions',text:'It needs a root canal. The quote is $1,800.',ch:[
+  {t:'Pay for it',fx:{cash:-1.8,energy:2},v:[],out:'Painful in two ways. Done, though.'},
+  {t:'Ignore it and chew on the left',fx:{energy:-6,joy:-3},v:['money'],out:'Bold strategy. Your left side is getting tired.'}]},
+ {id:'course',title:'An evening course',text:"An 8-week evening course on something you've been curious about for years. $400.",ch:[
+  {t:'Sign up for data analysis',fx:{cash:-0.4,skill:6,energy:-3,clarity:4},v:['mastery'],out:'Pivot tables are now a personality trait.'},
+  {t:'Sign up for pottery',fx:{cash:-0.4,joy:7,energy:2,clarity:4},v:['freedom'],out:'Your bowls are lopsided. Your head is clearer.'},
+  {t:'Skip it',fx:{energy:1},v:[],out:'Maybe next season.'}]},
+ {id:'hustle',title:'A friend\'s "sure thing"',text:'Your friend is launching a sneaker resale business and wants you in for $3,000. "Can\'t lose," they say.',ch:[
+  {t:'Put in the $3k',v:['money','freedom'],roll:{p:0.3,win:{fx:{cash:5,joy:4,network:2},out:'It works. You make your money back and then some.'},lose:{fx:{cash:-3,joy:-4},out:'There are now 400 pairs of sneakers in a garage. None of them are selling.'}}},
+  {t:'Wish them luck',fx:{},v:[],out:"You stay friends. That's the real return."}]},
+ {id:'longdistance',title:'Someone special',text:'You met someone great. Then they got a job three time zones away.',ch:[
+  {t:'Try long distance',v:['people'],roll:{p:0.5,win:{fx:{joy:10,energy:-2,clarity:4},out:'Video calls and cheap flights. It works, for now.'},lose:{fx:{joy:-6,cash:-1.5,clarity:5},out:'It ends after eight months. You learn what you need from a partner.'}}},
+  {t:'Keep it casual and stay open',fx:{joy:2},v:['freedom'],out:'No drama. A little wistful.'}]},
+ {id:'mentor',title:'Coffee with someone 15 years ahead',text:'At a meetup, a senior person says "email me, happy to grab coffee." They actually reply.',ch:[
+  {t:'Ask how they figured out what they wanted',fx:{clarity:9,network:4},v:['people'],out:'"I didn\'t. I just kept doing the next interesting thing." Weirdly comforting.'},
+  {t:'Ask for a referral',fx:{network:7,skill:1},v:['money'],out:'They introduce you to two people. Your network suddenly has a second layer.'}]},
+ {id:'sideproj',when:s=>s.path.id!=='project',title:'The Saturday side project',text:"You have an idea for a small app, zine or podcast. You've had it for a year.",ch:[
+  {t:'Spend weekends building it',fx:{skill:5,energy:-4,clarity:5},v:['mastery','freedom'],flag:{founderSpark:true},out:'47 people use it. You know all of their names. (Founder track unlocked.)'},
+  {t:'Protect your weekends',fx:{energy:4,joy:2},v:[],out:'Rest is productive too. Mostly.'}]},
+ {id:'rent',when:s=>s.city!=='HOM'&&s.path.kind!=='gap',title:'Rent goes up 12%',text:s=>`Your landlord in ${cityOf(s).name} sends a cheerful email about "market adjustments."`,ch:[
+  {t:'Pay it',fx:s=>({cash:-cityOf(s).col*0.12}),v:[],out:'Your money goes a bit less far now.'},
+  {t:'Move farther out',fx:{energy:-5,joy:-1},v:['money'],out:'Commute: 52 minutes. Podcast backlog: cleared.'},
+  {t:'Get a roommate',fx:s=>({cash:cityOf(s).col*0.15,joy:-2,network:2}),v:['people','money'],out:'They play the cello at 11pm. They also cook.'}]},
+ {id:'tutor',title:'Saturday tutoring',text:'A local group needs volunteers to tutor kids in reading on Saturday mornings.',ch:[
+  {t:'Sign up',fx:{joy:6,energy:-2,network:2,clarity:4},v:['impact','people'],out:'One kid finishes a whole chapter book. You think about it all week.'},
+  {t:'Donate $200 instead',fx:{cash:-0.2,joy:1},v:['money'],out:'Good, and easy to forget.'}]},
+ {id:'professor',title:'Your old professor emails',text:'"I have funding for a research assistant. Ever thought about a PhD?"',ch:[
+  {t:'Help part-time and see',fx:{skill:4,energy:-4,clarity:7,cash:1},v:['mastery'],out:"You love the questions. You're less sure about the pace."},
+  {t:'Politely decline',fx:{clarity:3},v:[],out:"Knowing what you don't want counts as clarity too."}]},
+ {id:'hackathon',title:'A weekend competition',text:"There's a hackathon and pitch night this weekend. First prize is $5,000.",ch:[
+  {t:'Enter with a team of strangers',v:['mastery','people'],roll:{p:s=>0.18+s.stats.skill/300,win:{fx:{cash:5,network:8,skill:4,joy:6},out:'You win. Your team still has a group chat.'},lose:{fx:{network:5,skill:3,energy:-3},out:'You lose to a team that clearly started early. You learn a lot.'}}},
+  {t:'Go to watch the demos',fx:{network:3,clarity:3},v:[],out:'Free pizza and three ideas you write on your hand.'}]},
+ {id:'family',title:'Family needs you',text:"A family member is sick. It's not an emergency, but it's not nothing.",ch:[
+  {t:'Go home for a month',fx:{cash:-2,energy:-2,joy:2,clarity:7,skill:-1},v:['people'],out:'You drive to a lot of appointments. You also talk more than you have in years.'},
+  {t:'Send money and call every day',fx:{cash:-2,joy:-1},v:['money'],out:'It helps. You still feel far away.'}]},
+ {id:'trek',title:'Three weeks in Patagonia',text:'A friend has a spare spot on a trek through Patagonia. Leaving in a month.',ch:[
+  {t:'Go',fx:{cash:-3,joy:10,energy:6,clarity:6,skill:-1},v:['adventure'],out:'You see glaciers. Your inbox did fine without you.'},
+  {t:'Stay and grind',fx:{skill:3,joy:-2},v:['mastery'],out:'Their photos arrive one by one.'}]},
+ {id:'newsletter',title:'You start writing',text:'You keep explaining things to friends. Someone says "you should write this down."',ch:[
+  {t:'Start a weekly newsletter',fx:{skill:4,network:5,energy:-3,clarity:6},v:['freedom','mastery'],out:'212 subscribers. Three of them are your mom on different emails.'},
+  {t:'Nah',fx:{},v:[],out:'The ideas stay in group chats, where ideas live forever.'}]},
+ {id:'adopt',title:'A dog needs a home',text:"Your neighbor is moving and can't take their dog. The dog is looking at you.",ch:[
+  {t:'Adopt the dog',fx:{joy:9,energy:3,cash:-1.5},v:['people'],out:'You now go on walks. Lots of walks.'},
+  {t:'Help find another home',fx:{joy:-1,network:2},v:['freedom'],out:'The dog goes to a nice family. You get photos.'}]},
+];
+
+const pid=(s,ids)=>[].concat(ids).includes(s.path.id);
+const SPEC=[
+ {id:'reorg',when:s=>pid(s,'bigtech'),title:'Reorg season',text:'Your team is being merged with another team. Nobody knows who reports to whom.',ch:[
+  {t:'Volunteer for the scary new project',v:['mastery'],roll:{p:0.55,win:{fx:{skill:8,network:4,energy:-4},out:'It ships. Your name is on the launch email.'},lose:{fx:{skill:4,joy:-5,energy:-6},out:'It gets cancelled after six months. You learned a lot about politics.'}}},
+  {t:'Keep your head down',fx:{joy:-3,energy:2},v:['money'],out:'You survive. So does your boredom.'},
+  {t:'Quietly start interviewing',fx:{network:4,clarity:5,energy:-2},v:['freedom'],out:"Two conversations show you what you're worth elsewhere."}]},
+ {id:'handcuffs',when:s=>pid(s,['bigtech','consult','finance']),title:'Golden handcuffs',text:'They offer a $15k retention bonus to stay two more years. Leave early and you pay it back.',ch:[
+  {t:'Take the money',fx:{cash:15,joy:-2},v:['money'],flag:s=>({handcuffs:s.year+2}),out:'Your exit door now has a toll booth.'},
+  {t:'Decline and stay flexible',fx:{clarity:5,joy:2},v:['freedom'],out:'Your manager is surprised. You feel lighter.'}]},
+ {id:'payroll',when:s=>pid(s,'startup'),title:'Payroll is late',text:'The CEO calls an all-hands. "We\'re closing a bridge round. Should be fine."',ch:[
+  {t:'Stay and believe',v:['freedom','mastery'],roll:{p:0.5,win:{fx:{cash:12,skill:6,joy:6,network:4},out:'The round closes. Months later you get acquired and your options are worth something.'},lose:{fx:{cash:-4,joy:-6,clarity:6},flag:{jobLost:true},out:"The company folds in March. You're out of a job, with a great story."}}},
+  {t:'Start interviewing now',fx:{network:5,clarity:4,joy:-2},v:['money'],out:"Smart move. Or cynical. You're not sure which."}]},
+ {id:'hoe',when:s=>pid(s,['startup','founder']),title:'Head of Everything',text:'Someone quit. You now run marketing, ops and the office plants.',ch:[
+  {t:'Say yes to all of it',fx:{skill:10,energy:-10,network:3},v:['mastery'],out:'You learn in six months what takes others three years. You also cry once in a supply closet.'},
+  {t:'Take one and push back on the rest',fx:{skill:4,energy:-2,clarity:4},v:['freedom'],out:'You learn the word "scope." It\'s a good word.'}]},
+ {id:'dubai',when:s=>pid(s,'consult'),title:'Six months in Dubai',text:'Your next client is in Dubai, Monday to Thursday, for six months.',ch:[
+  {t:'Pack the carry-on',fx:{network:7,skill:5,energy:-8,joy:2,cash:3},v:['adventure','money'],out:'You have airline status and no houseplants.'},
+  {t:'Ask for a local project',fx:{joy:3,skill:2},v:['people'],out:"You get a supply-chain project for a cereal company. It's fine."}]},
+ {id:'exitopps',when:s=>pid(s,['consult','finance'])&&s.path.tenure>=1,title:'A headhunter calls',text:'Private equity firms are recruiting. Interviews are next week. Pay: big. Hours: bigger.',ch:[
+  {t:'Do the interviews',v:['money'],roll:{p:0.45,win:{fx:{cash:6,network:6,energy:-6},flag:{raise:0.15},out:'You get an offer and use it to negotiate a 15% raise.'},lose:{fx:{energy:-4,clarity:5},out:"You don't get it. Relief shows up before disappointment does."}}},
+  {t:'Not interested',fx:{clarity:5},v:['freedom'],out:'You know a "no" when you feel one.'}]},
+ {id:'hundred',when:s=>pid(s,'finance'),title:'The 100-hour week',text:"A deal is closing. You haven't seen daylight since Tuesday.",ch:[
+  {t:'Grind it out',fx:{energy:-12,skill:6,cash:5},v:['money','mastery'],out:'The deal closes. Your bonus is real. So is your eye twitch.'},
+  {t:'Protect Sunday no matter what',fx:{energy:3,joy:3,skill:1},v:['freedom'],out:'Your VP notices. You also notice the sky.'}]},
+ {id:'grant',when:s=>pid(s,'nonprofit'),title:'The grant fell through',text:'Your main funder pulled out. The program you run might close in three months.',ch:[
+  {t:'Lead the fundraising push',v:['impact','people'],roll:{p:s=>0.35+s.stats.network/200,win:{fx:{skill:7,network:8,joy:8},out:'You raise enough to keep going. The board now knows your name.'},lose:{fx:{skill:5,network:5,joy:-6,energy:-5},out:'The program closes. You learn more about fundraising than any course could teach.'}}},
+  {t:'Take a pay cut to keep it alive',fx:{cash:-4,joy:4,energy:-3},v:['impact'],out:"The program survives. Your budget doesn't."},
+  {t:'Update your resume',fx:{clarity:4,joy:-3},v:['money'],out:'Practical. Also sad.'}]},
+ {id:'kid',when:s=>pid(s,'teach'),title:'The kid who finally gets it',text:'A student who failed every quiz in October just aced the final. They told you first.',ch:[
+  {t:'Stay late to tutor more kids',fx:{joy:8,energy:-6,skill:3},v:['impact','people'],out:"You're tired. You're also certain this matters."},
+  {t:'Celebrate, then set boundaries',fx:{joy:6,energy:4},v:['freedom'],out:'You go home at 4:30. The kids are fine. So are you.'}]},
+ {id:'clienthates',when:s=>pid(s,'creative'),title:'The client hates it',text:'You pitched your best idea. The client asks, "Can it pop more?"',ch:[
+  {t:'Fight for the idea',v:['mastery','freedom'],roll:{p:0.45,win:{fx:{joy:8,skill:6,network:3},out:'They come around. The campaign wins a small award.'},lose:{fx:{joy:-6,energy:-3},out:'They pick the safe option. Your idea goes in a folder called "someday."'}}},
+  {t:'Make it pop',fx:{cash:1,joy:-3,skill:2},v:['money'],out:"It pops. It's fine. You get paid on time."}]},
+ {id:'policy',when:s=>pid(s,'gov'),title:'Your policy passes, sort of',text:'The bill you helped draft passed, with half the useful parts removed.',ch:[
+  {t:'Celebrate the half that passed',fx:{joy:5,clarity:3},v:['people'],out:"Real change is slow. It's still change."},
+  {t:'Push for the amendments',fx:{skill:5,network:5,energy:-5},v:['impact'],out:'You now know every committee staffer by their coffee order.'}]},
+ {id:'review',when:s=>s.path.kind==='job'&&!pid(s,['founder','temp'])&&s.path.tenure>=1,title:'Performance review',text:'Your manager sends a calendar invite titled "Quick chat." It\'s your review.',ch:[
+  {t:'Ask for a raise directly',v:['money'],roll:{p:s=>0.3+s.stats.skill/180,win:{fx:{joy:6,clarity:2},flag:{raise:0.12},out:'They say yes: +12% salary. You should have asked sooner.'},lose:{fx:{joy:-4,clarity:4},out:'"Not this cycle." Now you know where you stand.'}}},
+  {t:'Ask for harder work instead',fx:{skill:6,energy:-3},v:['mastery'],out:"They give you the project nobody wanted. It's great."},
+  {t:'Ask about other teams',fx:{network:4,clarity:5},v:['freedom'],out:"You find three jobs inside your company you didn't know existed."}]},
+ {id:'intern',when:s=>s.path.kind==='job'&&!pid(s,['founder','temp']),title:'You get an intern',text:'A nervous 20-year-old is your responsibility for the summer.',ch:[
+  {t:'Mentor them properly',fx:{joy:5,network:3,energy:-3,clarity:4},v:['people'],out:'Explaining your job to someone else shows you which parts you like.'},
+  {t:'Give them the boring tasks',fx:{energy:2,joy:-1},v:[],out:'They do them perfectly and leave in August.'}]},
+ {id:'regulars',when:s=>pid(s,'temp'),title:'The regulars',text:'One regular at the café runs a design agency. Another runs a food truck. Both seem happy.',ch:[
+  {t:'Ask them how they started',fx:{clarity:8,network:5},v:['people'],out:'One went to art school. One was a lawyer. Real paths are weirder than LinkedIn shows.'},
+  {t:'Keep your head down and save',fx:{cash:2},v:['money'],out:'Tips are good this month.'}]},
+ {id:'investor',when:s=>pid(s,'founder')&&!s.flags.funded,title:'Investor meeting',text:'A small fund agreed to a 30-minute call. You have a deck. It has 14 slides.',ch:[
+  {t:'Pitch your heart out',v:['freedom','money'],roll:{p:s=>0.2+s.stats.network/220+s.stats.skill/260,win:{fx:{cash:15,joy:10,network:6},flag:{funded:true},out:'They lead your pre-seed. You can pay yourself a real salary now.'},lose:{fx:{joy:-6,clarity:6,network:3},out:'"Too early for us." You hear that 11 more times this year.'}}},
+  {t:'Bootstrap and charge customers',fx:{cash:4,skill:5,energy:-4},v:['freedom'],out:'Twelve paying customers. You know each of them personally.'}]},
+ {id:'roadtrip',when:s=>pid(s,'abroad'),title:'Hostel friends, road trip',text:"You met four people at the hostel. They're driving down the coast tomorrow.",ch:[
+  {t:'Jump in the van',fx:{joy:10,network:5,cash:-1,clarity:4},v:['adventure','people'],out:'Six friends, three countries, one broken tail light.'},
+  {t:'Take extra shifts instead',fx:{cash:2,skill:2,joy:-2},v:['money'],out:'Your manager offers you a supervisor role. Oddly tempting.'}]},
+ {id:'stay',when:s=>pid(s,'abroad'),title:'"You should stay"',text:'The owner of the bar where you work offers to sponsor a longer visa.',ch:[
+  {t:'Seriously consider it',fx:{clarity:8,joy:4},v:['adventure','freedom'],out:"You don't say yes, but you realize you could live anywhere."},
+  {t:'Thank them, you have plans',fx:{clarity:5},v:['mastery'],out:'Saying "I have plans" out loud makes you want to have some.'}]},
+ {id:'voluntour',when:s=>pid(s,'volunteer'),title:'Is this actually helping?',text:'You start to wonder whether your program helps the community, or mostly helps volunteers feel good.',ch:[
+  {t:'Ask the local staff directly',fx:{clarity:9,skill:3,joy:-2},v:['impact'],out:'They tell you, kindly and honestly. You change how you spend your hours.'},
+  {t:'Focus on the work in front of you',fx:{joy:4,energy:2},v:['people'],out:"The kids in your class don't care about the debate. They want recess."}]},
+ {id:'frontpage',when:s=>pid(s,'project'),title:'Your project goes viral',text:'Someone posted your project online. 30,000 visitors in a day. Your server is on fire.',ch:[
+  {t:'Add a paid plan',v:['money','freedom'],roll:{p:0.4,win:{fx:{cash:8,skill:6,joy:8},flag:{founderSpark:true},out:'People pay. Actual money. You are, technically, a business.'},lose:{fx:{skill:4,joy:-3},flag:{founderSpark:true},out:'Three people sign up. One asks for a refund.'}}},
+  {t:'Keep it free and build a community',fx:{network:10,skill:4,joy:5},v:['people','mastery'],flag:{founderSpark:true},out:'You have 2,000 fans and an inbox full of opportunities.'}]},
+ {id:'powder',when:s=>pid(s,'seasonal'),title:'Powder day',text:"Two feet of fresh snow overnight. You're scheduled for the 8am shift.",ch:[
+  {t:'Call in "sick"',fx:{joy:10,energy:3,cash:-0.3},v:['freedom','adventure'],out:'Best day of the year. Your manager also called in sick.'},
+  {t:'Work the shift',fx:{cash:0.5,network:3,joy:-2},v:['money'],out:'You get promoted to shift lead. Ski-bum management track.'}]},
+ {id:'thesis',when:s=>s.path.kind==='study',title:'Pick your thesis',text:'Your advisor wants a topic by Friday.',ch:[
+  {t:'Something ambitious and new',fx:{skill:8,energy:-6,clarity:4},v:['mastery'],out:"It's hard. It's yours."},
+  {t:'An industry-sponsored project',fx:{network:7,cash:2,skill:4},v:['money'],flag:{offer:true},out:"A company funds your research and asks if you'd like to interview."},
+  {t:'The safe, doable option',fx:{energy:4,joy:2},v:[],out:'Done by April. Free summers are underrated.'}]},
+ {id:'internship',when:s=>s.path.kind==='study',title:'Internship scramble',text:'Everyone in your cohort is applying for summer internships. The spreadsheet is color-coded.',ch:[
+  {t:'Apply to 40 places',v:['money','mastery'],roll:{p:s=>0.4+s.stats.network/200,win:{fx:{cash:6,network:6,skill:4},flag:{offer:true},out:'You land a great one. It comes with a return offer.'},lose:{fx:{energy:-6,joy:-4,clarity:4},out:'Zero offers. You spend the summer on a research project instead.'}}},
+  {t:'Travel all summer',fx:{joy:9,cash:-3,energy:6,clarity:4},v:['adventure'],out:'Fourteen countries. Zero regrets. Every interviewer asks about it.'}]},
+ {id:'cofound',when:s=>s.path.kind==='study',title:'A classmate wants a co-founder',text:'The smartest person in your cohort wants to start a company. They have an idea and no fear.',ch:[
+  {t:'Say yes, build on weekends',fx:{skill:5,energy:-5,clarity:6,network:3},v:['freedom','mastery'],flag:{founderSpark:true},out:'You have a company name, a logo and zero revenue. (Founder track unlocked.)'},
+  {t:'Not now',fx:{clarity:3},v:['money'],out:"You stay friends. You'll watch what they build."}]},
+ {id:'imposter',when:s=>s.path.kind==='study',title:'Everyone seems smarter',text:'Your classmates say "heteroskedasticity" casually. You nod a lot.',ch:[
+  {t:'Go to office hours',fx:{skill:5,joy:3},v:['mastery'],out:'The professor says half the class asked the same question.'},
+  {t:'Form a study group',fx:{skill:3,network:5,joy:4},v:['people'],out:'Five people, one whiteboard, a lot of snacks.'},
+  {t:'Quietly suffer',fx:{joy:-5,energy:-3},v:[],out:'Not recommended. Very common.'}]},
+ {id:'language',when:s=>!!LANG[s.city],title:s=>`Learning ${LANG[s.city]}`,text:s=>`Everyone in ${cityOf(s).name} is nice about your accent. Then they switch to English.`,ch:[
+  {t:'Take classes twice a week',fx:{cash:-0.6,joy:4,network:5,clarity:3},v:['adventure','people'],out:'Six months later you argue with a landlord in another language. And win.'},
+  {t:'Get by in English',fx:{joy:-2,energy:2},v:[],out:'Easier. A little lonelier.'}]},
+ {id:'sfparty',when:s=>s.city==='SFO',title:'Everyone is raising a round',text:'At a party, four people tell you about their AI startup. One of them is 19.',ch:[
+  {t:'Pitch your own idea back',fx:{network:6,clarity:4,joy:3},v:['freedom'],flag:{founderSpark:true},out:"Someone asks for your deck. You don't have one. Yet. (Founder track unlocked.)"},
+  {t:'Leave early',fx:{energy:3},v:[],out:'The fog is beautiful on the walk home.'}]},
+ {id:'rooftop',when:s=>s.city==='NYC',title:'A Brooklyn rooftop',text:'Someone you met once invites you to a rooftop party. Everyone there has three jobs.',ch:[
+  {t:'Go and work the room',fx:{network:7,energy:-3,joy:3},v:['people','money'],out:'You leave with eight new contacts and one actual friend.'},
+  {t:'Stay in, cook, call home',fx:{joy:3,energy:4},v:['people'],out:'The city will still be there tomorrow.'}]},
+ {id:'rain',when:s=>s.city==='LON',title:'Twenty-one days of rain',text:'It has rained every day for three weeks. Your umbrella has given up.',ch:[
+  {t:'Book a cheap weekend in Spain',fx:{cash:-0.6,joy:7,energy:4},v:['adventure'],out:'£49 flight, 28°C. You consider never coming back.'},
+  {t:'Join a pub quiz team',fx:{network:5,joy:3,energy:-2},v:['people'],out:'Your team is called "Quiz Team Aguilera." You came third.'}]},
+ {id:'train',when:s=>s.city==='TYO',title:'The 7-minute delay',text:'Your train was 7 minutes late. The rail company issued a written apology.',ch:[
+  {t:'Start a blog about life here',fx:{network:5,skill:3,clarity:3},v:['freedom','adventure'],out:'People start reading it. Some are planning their own move.'},
+  {t:'Explore a new neighborhood every weekend',fx:{joy:8,energy:2},v:['adventure'],out:"You've seen 30 neighborhoods. There are a few thousand left."}]},
+ {id:'bali',when:s=>s.city==='SIN',title:'Weekend in Bali?',text:'Flights to Bali, Bangkok and Hanoi cost less than a nice dinner.',ch:[
+  {t:'Go somewhere new every month',fx:{joy:8,cash:-2,energy:2},v:['adventure'],out:'Your passport is filling up fast.'},
+  {t:'Save and build skills',fx:{cash:2,skill:3},v:['money','mastery'],out:'Your savings grow quietly.'}]},
+ {id:'bass',when:s=>s.city==='AUS',title:'A band needs a bassist',text:"You played bass in high school. A local band's bassist just quit.",ch:[
+  {t:'Audition',fx:{joy:8,network:4,energy:-3},v:['freedom','people'],out:'You play six gigs. One is to eleven people. All great.'},
+  {t:'Go to the show instead',fx:{joy:3},v:[],out:'Live music on a Tuesday. Not bad.'}]},
+ {id:'remote',when:s=>['LIS','MEX','BER'].includes(s.city),title:'The remote-worker table',text:'At your café, everyone works remotely for companies in other time zones.',ch:[
+  {t:'Ask how they found remote jobs',fx:{clarity:6,network:5},v:['freedom'],out:'Half of them started by freelancing. You take notes.'},
+  {t:"Find the locals' places instead",fx:{joy:6,network:3},v:['adventure','people'],out:'Better food, half the price, and nobody talks about Slack.'}]},
+ {id:'february',when:s=>s.city==='YYZ',title:'February',text:"It's -24°C. The sidewalk is an ice rink. Your friends are planning a trip south.",ch:[
+  {t:'Join a rec hockey league',fx:{energy:6,network:5,joy:4},v:['people'],out:"You're bad at it. Everyone is nice about it."},
+  {t:'Hibernate and learn something',fx:{skill:5,energy:-1},v:['mastery'],out:'You finish two online courses and a lot of soup.'}]},
+ {id:'momnotes',when:s=>s.city==='HOM',title:'Mom has notes',text:'"Have you thought about nursing? Or law? Your cousin is doing law."',ch:[
+  {t:'Help with the family business for a bit',fx:{cash:2,skill:3,clarity:4,joy:-1},v:['people'],out:"You learn to run payroll. You also learn you're good at it."},
+  {t:'Calmly explain your plan',fx:{clarity:6,joy:2},v:[],out:'You make up half the plan on the spot. The made-up half is pretty good.'}]},
+ {id:'grocery',when:s=>s.city==='HOM',title:'Grocery store reunion',text:'You run into three people from high school in the cereal aisle.',ch:[
+  {t:'Get drinks with them',fx:{joy:5,network:3,clarity:4},v:['people'],out:'One started a business. One is a nurse. Everyone is figuring it out.'},
+  {t:'Hide behind the oat milk',fx:{energy:1},v:[],out:'Stealth: 10. Social life: 2.'}]},
+];
+const QUIET={id:'quiet',title:'A quiet stretch',text:'Nothing dramatic happens for a while. That is its own kind of luxury.',ch:[
+  {t:'Enjoy it',fx:{energy:5,joy:3},v:[],out:'You read three books and call your grandmother.'},
+  {t:'Use it to plan your next move',fx:{clarity:6},v:['mastery'],out:'You fill a notebook with ideas. Two are good.'}]};
+const ALL_EVENTS=[...FORCED,...GEN,...SPEC,QUIET];
+
+const ACH=[
+ {id:'six',name:'Six Figures',d:'Finish with $100k+ saved',test:s=>s.stats.cash>=100},
+ {id:'debtfree',name:'Debt Free',d:'Start in debt, finish in the black',test:s=>s.profile.debt!=='none'&&s.stats.cash>=0},
+ {id:'stamps',name:'Passport Stamps',d:'Live in 3+ cities',test:s=>s.cities.length>=3},
+ {id:'poly',name:'Tried It All',d:"Job, gap year and master's",test:s=>s.kinds.length===3},
+ {id:'lifer',name:'Lifer',d:'Same job all five years',test:s=>s.history.every(h=>h.id===s.history[0].id)&&PATHS[s.history[0].id].kind==='job'},
+ {id:'founder',name:'Founder',d:'Start your own thing',test:s=>s.history.some(h=>h.id==='founder')},
+ {id:'zen',name:'Well Rested',d:'Finish with 80+ Energy',test:s=>s.stats.energy>=80},
+ {id:'main',name:'Main Character',d:'Finish with 85+ Joy',test:s=>s.stats.joy>=85},
+ {id:'clear',name:'Know Thyself',d:'Reach 80+ Clarity',test:s=>s.stats.clarity>=80},
+ {id:'burn',name:'Burnout Survivor',d:'Hit the wall, keep going',test:s=>!!s.flags.burnout},
+ {id:'conn',name:'Super Connector',d:'Finish with 80+ Network',test:s=>s.stats.network>=80},
+ {id:'master',name:'Postgrad',d:"Finish a master's degree",test:s=>!!s.flags.masters},
+];
+const ARCH={
+ money:{name:'The Climber',line:'You chase security and leverage. That is a real strategy.'},
+ freedom:{name:'The Free Agent',line:'You keep choosing the door that stays open.'},
+ impact:{name:'The Changemaker',line:'You want the work to matter to someone other than you.'},
+ mastery:{name:'The Craftsperson',line:'You light up when you get better at something hard.'},
+ people:{name:'The Connector',line:'Your best moments all had other people in them.'},
+ adventure:{name:'The Wanderer',line:'New places wake you up. Routine puts you to sleep.'},
+};
+const TRY={
+ money:['Ask three people in high-paying jobs what they would do if the money disappeared.','Their answers show what the money is actually buying them.'],
+ freedom:['Do one small freelance project this month.','Notice whether you loved the autonomy or missed having a team.'],
+ impact:['Volunteer with one organization four Saturdays in a row.','Impact feels different up close than it does in a mission statement.'],
+ mastery:['Run a six-week skill sprint and publish what you make at the end.','Cheaper than a degree, and it tells you whether you like the work itself.'],
+ people:['Do five informational interviews this month.','Afterward, write down which conversations gave you energy and which drained it.'],
+ adventure:['Check which working holiday visas you qualify for.','Many countries offer them to people under 30 or 35. It is a low-risk way to try living abroad.'],
+};
+const EXAMPLES=[
+ {name:'Example A',sub:'Tech, then a reset',stops:[{kind:'job',city:'SFO',id:'bigtech'},{kind:'job',city:'SFO',id:'bigtech'},{kind:'gap',city:'LIS',id:'abroad'},{kind:'study',city:'BER',id:'mscs'},{kind:'study',city:'BER',id:'mscs'}]},
+ {name:'Example B',sub:'Travel into impact',stops:[{kind:'gap',city:'TYO',id:'abroad'},{kind:'job',city:'NYC',id:'nonprofit'},{kind:'job',city:'NYC',id:'nonprofit'},{kind:'study',city:'LON',id:'mpp'},{kind:'job',city:'LON',id:'gov'}]},
+ {name:'Example C',sub:'School to founder',stops:[{kind:'study',city:'LON',id:'mim'},{kind:'job',city:'LON',id:'consult'},{kind:'job',city:'SIN',id:'consult'},{kind:'job',city:'SIN',id:'consult'},{kind:'job',city:'MEX',id:'founder'}]},
+];
+
+/* ---------- helpers ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const val=(x,s)=>typeof x==='function'?x(s):x;
+const cityOf=s=>CITIES.find(c=>c.id===s.city);
+const cityById=id=>CITIES.find(c=>c.id===id);
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+function fmtK(x){const a=Math.abs(x);const n=a>=10?Math.round(a):Math.round(a*10)/10;return (x<0?'−':'')+'$'+n+'k'}
+function signed(x,k){return (x>0?'+':'')+(k==='cash'?fmtK(x).replace('$','$'):Math.round(x))}
+const STAT_LABEL=Object.fromEntries([['cash','Cash'],...STATS]);
+const LS='five-year-run-lives-v1';
+function loadLives(){try{return JSON.parse(localStorage.getItem(LS)||'[]')}catch(e){return []}}
+function saveLives(l){try{localStorage.setItem(LS,JSON.stringify(l))}catch(e){}}
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let state;
+const app=document.getElementById('app');
+
+function newLife(profile){
+ const w=profile.stage==='working';
+ return {screen:'path',mode:'open',profile,year:1,age:STAGES[profile.stage].age,
+  stats:{cash:(w?10:3)-DEBTS[profile.debt].amt,skill:w?28:20,joy:55,energy:70,network:w?20:15,clarity:15},
+  path:null,city:null,pending:null,history:[],revealed:Object.fromEntries(Object.keys(VALUES).map(k=>[k,0])),
+  flags:{raise:0},seen:[],forcedYear:{},step:0,ev:null,outcome:null,rejected:[],kinds:[],cities:[],notes:[],saved:false,
+  log:[],aiTitles:[],aiEv:null,aiBusy:false,aiErr:null,aiOff:false,aiNote:null};
+}
+function applyFx(fx){
+ const s=state,d={};
+ for(const [k,v] of Object.entries(fx||{})){
+  if(!v)continue;
+  if(k==='cash'){s.stats.cash+=v;d.cash=v}
+  else{const b=s.stats[k];s.stats[k]=clamp(b+v,0,100);const r=s.stats[k]-b;if(r)d[k]=r}
+ }
+ return d;
+}
+function reveal(v,n=1){(v||[]).forEach(k=>state.revealed[k]+=n)}
+function founderOpen(s){return !!s.flags.founderSpark||s.stats.skill>=50}
+function roleOf(s,id,tenure){const p=PATHS[id];return (p.kind==='job'&&tenure>=2&&!['founder','temp'].includes(id)?'Senior ':'')+p.role}
+function oddsFor(s,id,cityId){
+ const p=PATHS[id],c=cityById(cityId),rows=[['Base odds',p.odds]];
+ if(p.fit.includes(s.profile.field))rows.push(['Your degree fits',10]);
+ const sk=Math.round((s.stats.skill-20)*0.6);if(sk)rows.push(['Skills',sk]);
+ const nw=Math.round((s.stats.network-15)*0.35);if(nw)rows.push(['Network',nw]);
+ if(p.kind==='job'&&s.flags.masters)rows.push(["Master's degree",12]);
+ if(p.kind==='job'&&s.flags.offer)rows.push(['Internship offer',20]);
+ if(p.kind==='study'&&s.history.some(h=>PATHS[h.id].kind!=='study'))rows.push(['Real-world experience',8]);
+ if((id==='bigtech'||id==='startup')&&c.id==='SFO')rows.push(['Tech hub',5]);
+ if((id==='finance'||id==='consult')&&(c.id==='NYC'||c.id==='LON'))rows.push(['Finance hub',5]);
+ const total=clamp(rows.reduce((a,r)=>a+r[1],0),6,95);
+ return {rows,total};
+}
+function needsRoll(s,id){const p=PATHS[id];if(s.path&&s.path.id===id)return false;return (p.kind==='job'&&p.odds<100)||p.kind==='study'}
+
+/* ---------- flow ---------- */
+function commit(){
+ const s=state,{id,city}=s.pending,p=PATHS[id];s.notes=[];
+ const prev=s.path;
+ if(prev&&prev.id!==id){
+  if(s.flags.handcuffs&&s.year<s.flags.handcuffs){s.stats.cash-=15;s.notes.push('You left early and paid back the $15k retention bonus.');s.flags.handcuffs=0}
+  if(PATHS[prev.id].kind==='study'&&prev.yearsLeft>0){applyFx({joy:-3});s.notes.push("You dropped out of your master's. No degree, but no more tuition.")}
+  s.flags.jobLost=false;
+ }
+ const same=prev&&prev.id===id;
+ s.path={id,kind:p.kind,tenure:same?prev.tenure:0,yearsLeft:p.kind==='study'?(same?prev.yearsLeft:p.years):0};
+ s.novel={kind:!s.kinds.includes(p.kind),city:!s.cities.includes(city)};
+ if(s.novel.kind)s.kinds.push(p.kind);
+ if(s.novel.city)s.cities.push(city);
+ if(!same)reveal(p.v,2);
+ if(s.city!==city)reveal(cityById(city).v,1);
+ s.city=city;
+ s.yearStart={...s.stats};
+ s.history.push({year:s.year,id,kind:p.kind,city,role:roleOf(s,id,s.path.tenure)});
+ s.rejected=[];s.step=0;s.pending=null;
+ nextEvent();s.screen='event';
+}
+function nextEvent(){
+ const s=state;
+ s.outcome=null;s.aiEv=null;s.aiErr=null;
+ const forced=FORCED.find(e=>e.when(s)&&s.forcedYear[e.id]!==s.year);
+ if(forced){s.forcedYear[forced.id]=s.year;s.ev=forced.id;return}
+ if(aiOn(s)){s.ev='ai';requestAiEvent();return}
+ deckEvent();
+}
+function deckEvent(){
+ const s=state;
+ let ev;
+ {
+  const ok=e=>!s.seen.includes(e.id)&&(!e.when||e.when(s));
+  const spec=SPEC.filter(ok),gen=GEN.filter(ok);
+  const preferSpec=s.step===0?true:Math.random()<0.35;
+  const pool=(preferSpec&&spec.length)?spec:(gen.length?gen:spec);
+  ev=pool.length?rnd(pool):QUIET;
+  s.seen.push(ev.id);
+ }
+ s.ev=ev.id;s.outcome=null;
+}
+function evById(id){return id==='ai'?state.aiEv:ALL_EVENTS.find(e=>e.id===id)}
+
+/* ---------- Claude-written events ---------- */
+let sampleFn=null,aiCtl=null;
+const AI_OFF_CODES=['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'];
+const aiOn=s=>!!(s.profile.ai&&sampleFn&&!s.aiOff);
+const clip=(x,n)=>String(x??'').replace(/\s+/g,' ').trim().slice(0,n);
+function cleanFx(fx){
+ const o={};if(!fx||typeof fx!=='object')return o;
+ for(const k of ['skill','joy','energy','network','clarity']){const n=Math.round(Number(fx[k]));if(n)o[k]=clamp(n,-15,15)}
+ const c=Number(fx.cash);if(c)o.cash=clamp(Math.round(c*10)/10,-10,15);
+ return o;
+}
+function cleanAiEvent(r){
+ if(!r||typeof r!=='object')return null;
+ const title=clip(r.title,60),text=clip(r.text,320);
+ const ch=(Array.isArray(r.choices)?r.choices:[]).slice(0,3).map(c=>{
+  if(!c||typeof c!=='object')return null;
+  const t=clip(c.label,90);if(!t)return null;
+  const v=(Array.isArray(c.values)?c.values:[]).map(String).filter(x=>VALUES[x]).slice(0,2);
+  if(c.roll&&c.roll.win&&c.roll.lose){
+   const p=clamp(Number(c.roll.p)||0.5,0.15,0.85);
+   return {t,v,roll:{p,win:{fx:cleanFx(c.roll.win.fx),out:clip(c.roll.win.outcome,300)||'It works out.'},lose:{fx:cleanFx(c.roll.lose.fx),out:clip(c.roll.lose.outcome,300)||'It does not work out.'}}};
+  }
+  return {t,v,fx:cleanFx(c.fx),out:clip(c.outcome,300)||'Life moves on.'};
+ }).filter(Boolean);
+ if(!title||!text||ch.length<2)return null;
+ return {id:'ai',ai:true,title,text,ch};
+}
+function aiPrompt(s){
+ const pr=s.profile,p=PATHS[s.path.id],c=cityOf(s);
+ const tenure=p.kind==='study'?`year ${p.years-s.path.yearsLeft+1} of ${p.years}`:`year ${s.path.tenure+1} there`;
+ const route=s.history.map(h=>`Y${h.year} ${PATHS[h.id].name} in ${cityById(h.city).name}`).join('; ');
+ const recent=s.log.slice(-6).map(l=>`- Y${l.year} "${l.title}": chose "${l.choice}". ${l.out}`).join('\n')||'- none yet';
+ const used=[...s.aiTitles,...s.log.map(l=>l.title)].slice(-14).join(' | ')||'none';
+ return `You write one event card for "Five Year Run", a life-simulator game for young people choosing between a first job, a gap year and a master's degree. Players use it to figure out what they actually want.
+
+PLAYER
+Name: ${pr.name}, age ${s.age}. Where they started: ${STAGES[pr.stage].label}. Studied: ${FIELDS[pr.field]}. Started with ${DEBTS[pr.debt].amt?'$'+DEBTS[pr.debt].amt+'k':'no'} student debt.
+Says they value most: ${pr.values.map(v=>VALUES[v]).join(' and ')}.
+Now: year ${s.year} of 5, moment ${s.step+1} of 2. Path: ${p.name} (${roleOf(s,s.path.id,s.path.tenure)}, ${tenure}). City: ${c.name}.
+Stats, 0-100: Skills ${Math.round(s.stats.skill)}, Joy ${Math.round(s.stats.joy)}, Energy ${Math.round(s.stats.energy)}, Network ${Math.round(s.stats.network)}, Clarity ${Math.round(s.stats.clarity)}. Savings: ${fmtK(s.stats.cash).replace('−','-')}.
+Route so far: ${route}.
+Recent choices:
+${recent}
+Situations already used, do not repeat them: ${used}
+
+WRITE
+One specific moment that could plausibly happen to this person this year. Tie it to their path, their city, a thread from a recent choice, or a stat that stands out (low Energy, debt, high Network). Vary the kind of moment: work, money, friends, family, love, health, a surprise opportunity, a small absurd thing. Give 2 or 3 choices that pull toward different values, with no obvious right answer. A good card helps the player notice what they care about.
+Tone: warm, wry and concrete, with real names of places, foods and job details. Plain words. Second person. No tragedy, no trauma, nothing graphic.
+Each choice reveals 1 or 2 values from: money, freedom, impact, mastery, people, adventure.
+Effects use integers between -12 and 12 for skill, joy, energy, network and clarity, and cash in thousands of dollars between -8 and 12. Most choices have 2 to 4 effects, with real trade-offs.
+At most one choice may be risky. A risky choice has "roll" instead of "fx" and "outcome": p is the chance it goes well (0.2 to 0.8), with win and lose results.
+
+Reply with only JSON in this shape:
+{"title":"at most 6 words","text":"1-2 sentences, at most 220 characters","choices":[{"label":"at most 8 words","values":["people"],"fx":{"joy":5,"energy":-3},"outcome":"1-2 sentences on what happened"},{"label":"at most 8 words","values":["mastery","money"],"roll":{"p":0.4,"win":{"fx":{"cash":4,"skill":3},"outcome":"..."},"lose":{"fx":{"joy":-4},"outcome":"..."}}}]}`;
+}
+async function requestAiEvent(){
+ const s=state;
+ aiCtl?.abort();
+ const ctl=aiCtl=new AbortController();
+ s.aiBusy=true;s.aiErr=null;
+ const stale=()=>state!==s||ctl!==aiCtl||s.ev!=='ai';
+ try{
+  const raw=await sampleFn.json(aiPrompt(s),{modelTier:'quick',cache:false,signal:ctl.signal});
+  if(stale())return;
+  const ev=cleanAiEvent(raw);
+  if(!ev){s.aiErr='Claude wrote something the game could not use. Try again, or use a classic event.';return}
+  s.aiEv=ev;s.aiTitles.push(ev.title);
+ }catch(e){
+  if(stale()||e?.code==='cancelled')return;
+  if(AI_OFF_CODES.includes(e?.code)){s.aiOff=true;s.aiNote='Claude-written events are off for this run, so the classic events take over.';deckEvent();return}
+  s.aiErr=e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit, or use a classic event.'
+   :e?.code==='session_expired'?'Sign in to Claude again to keep getting fresh events, or use a classic event.'
+   :'Claude could not write this moment. Try again, or use a classic event.';
+ }finally{
+  if(state===s&&ctl===aiCtl){s.aiBusy=false;render()}
+ }
+}
+function choose(i){
+ resolveChoice(i);
+ render();
+ requestAnimationFrame(()=>{const o=document.getElementById('outcome');if(o)o.scrollIntoView({behavior:reduced?'auto':'smooth',block:'nearest'})});
+}
+function resolveChoice(i){
+ const s=state,ev=evById(s.ev),c=ev.ch[i];
+ let fx,out,flag=c.flag,roll=null;
+ if(c.roll){const p=clamp(val(c.roll.p,s),0.05,0.95),r=Math.random(),win=r<p,br=win?c.roll.win:c.roll.lose;fx=val(br.fx,s);out=br.out;if(br.flag)flag=br.flag;roll={p:Math.round(p*100),r:Math.max(1,Math.ceil(r*100)),win}}
+ else{fx=val(c.fx,s);out=c.out}
+ const d=applyFx(fx);reveal(c.v);
+ if(flag)for(const [k,v] of Object.entries(val(flag,s))){if(k==='raise')s.flags.raise+=v;else s.flags[k]=v}
+ if(ev.flag)s.flags[ev.flag]=true;
+ s.outcome={i,choice:c.t,out,d,roll};
+ s.log.push({year:s.year,title:val(ev.title,s),choice:c.t,out});
+}
+function endYear(){
+ const s=state,p=PATHS[s.path.id],c=cityOf(s),lines=[],notes=[...s.notes];
+ if(p.kind==='job'){
+  if(s.path.id==='founder'){lines.push(['Founder pay',s.flags.funded?65:p.pay])}
+  else{let gross=p.pay*c.sal*(s.flags.masters?1.15:1)*(1+0.08*s.path.tenure)*(1+s.flags.raise);if(s.flags.jobLost){gross*=0.55;notes.push('Your job ended partway through the year.')}lines.push(['Take-home pay',gross*0.72])}
+  lines.push(['Rent & living',-c.col]);
+ }else if(p.kind==='gap'){lines.push(['Earnings',p.income]);lines.push(['Living costs',-c.col*p.costMult])}
+ else{lines.push(['Tuition',-TUITION[c.region]*p.tuition]);lines.push(['Part-time work',7]);lines.push(['Living costs',-c.col*0.85])}
+ const net=lines.reduce((a,l)=>a+l[1],0);s.stats.cash+=net;
+ const fx={...p.fx};
+ if(p.kind==='gap'&&s.path.tenure>=1){fx.clarity=Math.round((fx.clarity||0)/2);notes.push('A second gap year teaches you less than the first.')}
+ for(const [k,v] of Object.entries(c.fx))fx[k]=(fx[k]||0)+v;
+ fx.clarity=(fx.clarity||0)+2+(s.novel.kind?6:0)+(s.novel.city?3:0);
+ if(s.novel.kind)notes.push(`First time trying a ${KIND[p.kind].toLowerCase()}: +6 Clarity.`);
+ if(s.novel.city&&s.history.length>1)notes.push(`New city: +3 Clarity.`);
+ if(s.stats.cash<-30){fx.joy=(fx.joy||0)-4;notes.push('Debt stress: −4 Joy.')}
+ else if(s.stats.cash>40){fx.joy=(fx.joy||0)+2;notes.push('A savings cushion: +2 Joy.')}
+ fx.joy=(fx.joy||0)+Math.round(Math.random()*4-2)+Math.round((55-s.stats.joy)*0.2);
+ if(s.stats.joy>75)notes.push('You got used to the good stuff. Joy drifts back toward normal.');
+ const d=applyFx(fx);
+ if(p.kind==='study'){s.path.yearsLeft--;if(s.path.yearsLeft<=0){s.flags.masters=true;notes.push(`You graduated: ${p.name}. Job odds +12, salaries +15%.`)}}
+ else{s.path.tenure++;if(p.kind==='job'&&s.path.tenure===2&&!['founder','temp'].includes(s.path.id))notes.push(`Promoted: you're now Senior ${p.role}.`)}
+ if(s.path.id!=='founder'&&founderOpen(s)&&!s.flags.founderNoted){s.flags.founderNoted=true;notes.push('Founder track unlocked: you can start your own thing next year.')}
+ const h=s.history[s.history.length-1];
+ h.joy=s.stats.joy-s.yearStart.joy;h.energy=s.stats.energy-s.yearStart.energy;h.net=net;h.end={...s.stats};
+ s.summary={lines,net,d,notes};
+ s.screen='yearEnd';
+}
+function finish(){
+ const s=state;
+ if(s.saved)return;
+ const lives=loadLives();
+ const top=topValues(s);
+ lives.push({id:Date.now(),name:s.profile.name,arch:ARCH[top[0]].name,top,stops:s.history.map(h=>({kind:h.kind,city:h.city,id:h.id})),final:{...s.stats}});
+ while(lives.length>6)lives.shift();
+ saveLives(lives);s.saved=true;s.lifeNo=lives.length;
+}
+function topValues(s){return Object.entries(s.revealed).sort((a,b)=>b[1]-a[1]).map(e=>e[0])}
+
+/* ---------- 1,000 simulations ----------
+   Each simulated life runs the real game: same events, odds, money math and crossroads.
+   The simulated player picks a random first move and city, then makes choices
+   weighted toward the two values the real player said matter most. */
+const SIM_N=1000;
+let lastSim=null;
+const profileKey=p=>JSON.stringify([p.name,p.stage,p.field,p.debt,[...p.values].sort()]);
+function simPickChoice(ev,s){
+ const said=s.profile.values;
+ const w=ev.ch.map(c=>Math.pow(1+2*(c.v||[]).filter(v=>said.includes(v)).length+Math.random()*1.5,2));
+ let r=Math.random()*w.reduce((a,b)=>a+b,0);
+ for(let i=0;i<w.length;i++){if((r-=w[i])<=0)return i}
+ return w.length-1;
+}
+function simMove(s,opening){
+ for(let tries=0;tries<12;tries++){
+  const ids=Object.keys(PATHS).filter(id=>{
+   const cur=s.path&&s.path.id===id;
+   return !(id==='founder'&&!founderOpen(s))&&!s.rejected.includes(id)&&!(cur&&PATHS[id].kind!=='job');
+  });
+  const id=rnd(ids),p=PATHS[id];
+  const cities=CITIES.filter(c=>!(p.kind==='gap'&&c.id==='HOM'));
+  const city=p.city||(!opening&&s.city&&Math.random()<0.5&&cities.some(c=>c.id===s.city)?s.city:rnd(cities).id);
+  if(needsRoll(s,id)&&1+Math.floor(Math.random()*100)>oddsFor(s,id,city).total){s.rejected.push(id);applyFx({joy:-3});continue}
+  s.pending={id,city};commit();return;
+ }
+ s.pending={id:'temp',city:s.city||'HOM'};commit();
+}
+function simOne(profile){
+ const s=newLife(profile);state=s;
+ simMove(s,true);
+ const open={id:s.path.id,city:s.city};
+ for(;;){
+  for(;;){resolveChoice(simPickChoice(evById(s.ev),s));s.step++;if(s.step<2)nextEvent();else break}
+  endYear();
+  if(s.year>=5)break;
+  s.year++;s.age++;
+  const p=PATHS[s.path.id];
+  let stay;
+  if(p.kind==='study')stay=s.path.yearsLeft>0&&Math.random()<0.85;
+  else if(s.flags.jobLost||(p.kind==='gap'&&s.path.tenure>=2))stay=false;
+  else stay=Math.random()<(p.kind==='gap'?0.3:0.65);
+  if(stay){s.pending={id:s.path.id,city:s.city};commit()}else simMove(s,false);
+ }
+ let switches=0;s.history.forEach((h,i)=>{if(i&&h.id!==s.history[i-1].id)switches++});
+ return {open:open.id,openCity:open.city,openKind:PATHS[open.id].kind,stops:s.history.map(h=>({kind:h.kind,city:h.city,id:h.id})),
+  f:{...s.stats},burn:!!s.flags.burnout,masters:!!s.flags.masters,switches,top:topValues(s)[0]};
+}
+function runSims(profile){
+ const prof={...profile,values:[...profile.values],ai:false},out=[];
+ const ui={screen:'simming',profile,done:0,peek:null};
+ state=ui;render();window.scrollTo(0,0);
+ const tick=()=>{
+  if(state!==ui)return;
+  for(let k=0;k<25&&out.length<SIM_N;k++)out.push(simOne(prof));
+  state=ui;ui.done=out.length;ui.peek=out[out.length-1];
+  const c=document.getElementById('simcount'),b=document.getElementById('simbar'),pk=document.getElementById('simpeek');
+  if(c)c.textContent=ui.done.toLocaleString();
+  if(b)b.style.width=(ui.done/SIM_N*100)+'%';
+  if(pk)pk.textContent=peekLine(ui.peek,ui.done);
+  if(out.length<SIM_N)setTimeout(tick,reduced?0:28);
+  else{lastSim=analyze(out,profile);state={screen:'results',profile};render();window.scrollTo(0,0)}
+ };
+ setTimeout(tick,60);
+}
+function peekLine(l,n){return `Life ${n}: ${l.stops.map(x=>`${PATHS[x.id].name} (${x.city})`).filter((x,i,a)=>a.indexOf(x)===i).join(' → ')} · Joy ${Math.round(l.f.joy)} · ${fmtK(l.f.cash)}`}
+function analyze(L,profile){
+ const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
+ const med=a=>{const b=[...a].sort((x,y)=>x-y);return b.length?b[Math.floor(b.length/2)]:0};
+ const pct=(a,f)=>Math.round(100*a.filter(f).length/(a.length||1));
+ const stat=g=>({n:g.length,joy:avg(g.map(l=>l.f.joy)),cash:med(g.map(l=>l.f.cash)),clar:avg(g.map(l=>l.f.clarity)),energy:avg(g.map(l=>l.f.energy)),burn:pct(g,l=>l.burn),happy:pct(g,l=>l.f.joy>=70)});
+ const group=key=>{const m={};L.forEach(l=>{(m[key(l)]=m[key(l)]||[]).push(l)});return Object.entries(m).map(([k,g])=>({k,...stat(g)}))};
+ const all=stat(L);
+ const byOpen=group(l=>l.open).filter(g=>g.n>=15).sort((a,b)=>b.joy-a.joy);
+ const byCity=group(l=>l.openCity).filter(g=>g.n>=15).sort((a,b)=>b.joy-a.joy);
+ const byKind=Object.fromEntries(group(l=>l.openKind).map(g=>[g.k,g]));
+ const sorted=k=>L.map(l=>l.f[k]).sort((a,b)=>a-b);
+ const dist={joy:sorted('joy'),cash:sorted('cash'),clarity:sorted('clarity'),energy:sorted('energy')};
+ const rank=(k,v)=>{const d=dist[k];let i=0;while(i<d.length&&d[i]<v)i++;return i/d.length};
+ const happiest=[...L].sort((a,b)=>b.f.joy-a.f.joy||b.f.cash-a.f.cash)[0];
+ const richest=[...L].sort((a,b)=>b.f.cash-a.f.cash)[0];
+ const balanced=[...L].sort((a,b)=>Math.min(...['joy','cash','clarity','energy'].map(k=>rank(k,b.f[k])))-Math.min(...['joy','cash','clarity','energy'].map(k=>rank(k,a.f[k]))))[0];
+ const F=[],name=id=>PATHS[id].name,kname=k=>({job:'a job',gap:'a gap year',study:"a master's"})[k];
+ const signedK=v=>(v>=0?'+':'−')+'$'+Math.abs(Math.round(v))+'k';
+ const bestJoy=byOpen[0],bestCash=[...byOpen].sort((a,b)=>b.cash-a.cash)[0],worstBurn=[...byOpen].sort((a,b)=>b.burn-a.burn)[0];
+ if(bestJoy)F.push({h:`Happiest first move: ${name(bestJoy.k)}`,p:`The ${bestJoy.n} lives that opened with ${name(bestJoy.k)} ended with average Joy ${Math.round(bestJoy.joy)}, the highest of any first move. ${bestJoy.happy}% of them ended happy (Joy 70+), against ${all.happy}% overall.`});
+ if(bestCash)F.push({h:`Richest first move: ${name(bestCash.k)}`,p:bestCash.k===bestJoy?.k?`It also led on money: median savings of ${fmtK(bestCash.cash)} at age ${STAGES[profile.stage].age+4}. For you, money and happiness pointed the same way.`:`Median savings of ${fmtK(bestCash.cash)} at age ${STAGES[profile.stage].age+4}, against ${fmtK(all.cash)} overall. Average Joy was ${Math.round(bestCash.joy)}, ${Math.round(bestJoy.joy-bestCash.joy)} points below the happiest move.`});
+ if(byKind.gap&&byKind.job){const dc=byKind.gap.clar-byKind.job.clar,dm=byKind.gap.cash-byKind.job.cash;F.push({h:`A gap year first: ${dc>=0?'+':''}${Math.round(dc)} Clarity, ${signedK(dm)}`,p:`Compared with starting in a job, lives that opened with a gap year ended ${Math.abs(Math.round(dc))} points ${dc>=0?'clearer':'less clear'} about what they want, with ${fmtK(Math.abs(dm))} ${dm>=0?'more':'less'} in median savings.`})}
+ if(byKind.study&&byKind.job){const dm=byKind.study.cash-byKind.job.cash,dj=byKind.study.joy-byKind.job.joy;F.push({h:`A master's first: ${signedK(dm)} by age ${STAGES[profile.stage].age+4}`,p:`Tuition costs a lot up front. Lives that opened with a master's ended with ${fmtK(Math.abs(dm))} ${dm>=0?'more':'less'} in median savings than those that opened with a job, and average Joy ${dj>=0?'higher':'lower'} by ${Math.abs(Math.round(dj))}.`})}
+ if(worstBurn&&worstBurn.burn>all.burn)F.push({h:`Burnout risk: ${name(worstBurn.k)}`,p:`${worstBurn.burn}% of lives that opened with ${name(worstBurn.k)} hit burnout at least once, against ${all.burn}% overall.`});
+ const stayers=L.filter(l=>l.switches===0),movers=L.filter(l=>l.switches>=2);
+ if(stayers.length>=20&&movers.length>=20){const dj=avg(movers.map(l=>l.f.joy))-avg(stayers.map(l=>l.f.joy)),dcl=avg(movers.map(l=>l.f.clarity))-avg(stayers.map(l=>l.f.clarity));F.push({h:(dj>=0)===(dcl>=0)?(dj>=0?'Changing course paid off':'Sticking with one thing paid off'):`Switching paths: ${dj>=0?'+':'−'}${Math.abs(Math.round(dj))} Joy, ${dcl>=0?'+':'−'}${Math.abs(Math.round(dcl))} Clarity`,p:`Lives that switched paths two or more times ended with ${Math.abs(Math.round(dj))} ${dj>=0?'more':'less'} Joy and ${Math.abs(Math.round(dcl))} ${dcl>=0?'more':'less'} Clarity than lives that never switched.`})}
+ const top=[...L].sort((a,b)=>b.f.joy-a.f.joy).slice(0,Math.round(L.length/10));
+ const share=k=>pct(top,l=>l.openKind===k),kinds=['job','gap','study'].sort((a,b)=>share(b)-share(a));
+ const cityCount={};top.forEach(l=>cityCount[l.openCity]=(cityCount[l.openCity]||0)+1);
+ const topCity=Object.entries(cityCount).sort((a,b)=>b[1]-a[1])[0];
+ F.push({h:`What your happiest 10% had in common`,p:`${share(kinds[0])}% of your ${top.length} happiest lives started with ${kname(kinds[0])} (against ${pct(L,l=>l.openKind===kinds[0])}% of all lives). The most common first city among them was ${cityById(topCity[0]).name}.`});
+ return {key:profileKey(profile),n:L.length,all,byOpen,byCity,byKind,dist,F,reps:[{label:'Happiest life',l:happiest},{label:'Richest life',l:richest},{label:'Most balanced',l:balanced}],
+  pts:L.map(l=>({x:l.f.cash,y:l.f.joy,k:l.openKind,o:l.open,c:l.openCity}))};
+}
+function percentile(sim,k,v){const d=sim.dist[k];let i=0;while(i<d.length&&d[i]<v)i++;return Math.round(100*i/d.length)}
+
+/* ---------- Claude's read of the simulations ---------- */
+let takeCtl=null;
+const PLAY_RE=/\n?\s*PLAY:\s*([a-z]+)\s+([A-Z]{3})\s*$/;
+function takePrompt(pr,sim){
+ const age=STAGES[pr.stage].age+4,a=sim.all;
+ const moves=sim.byOpen.map((g,i)=>`${i+1}. ${PATHS[g.k].name} [id ${g.k}] (${g.n} lives): avg Joy ${Math.round(g.joy)}, median savings ${fmtK(g.cash).replace('−','-')}, burnout ${g.burn}%, avg Clarity ${Math.round(g.clar)}, ended happy ${g.happy}%`).join('\n');
+ const cities=sim.byCity.map(g=>`${cityById(g.k).name} [${g.k}]: avg Joy ${Math.round(g.joy)}, median savings ${fmtK(g.cash).replace('−','-')}, burnout ${g.burn}%`).join('\n');
+ const reps=sim.reps.map(r=>`${r.label}: ${r.l.stops.map(x=>`${PATHS[x.id].name} in ${cityById(x.city).name}`).join(' → ')} (Joy ${Math.round(r.l.f.joy)}, savings ${fmtK(r.l.f.cash).replace('−','-')})`).join('\n');
+ return `You are helping a young person who doesn't know what they want to do next. A life-simulator game just ran 1,000 versions of their next five years. Read the results and tell them what to try first.
+
+THE PERSON
+${pr.name}, ${STAGES[pr.stage].label.toLowerCase()}, age ${STAGES[pr.stage].age}, studied ${FIELDS[pr.field]}, ${DEBTS[pr.debt].amt?'$'+DEBTS[pr.debt].amt+'k':'no'} student debt. Says they value most: ${pr.values.map(v=>VALUES[v]).join(' and ')}.
+
+HOW THE SIMULATION WORKS
+Each simulated life picked a random first move and city, then made choices leaning toward the values above. Outcomes are on 0-100 scales (Joy, Clarity, Energy) plus savings in dollars at age ${age}. It is a game model with made-up but plausible numbers, not a forecast.
+
+OVERALL (1,000 lives)
+${a.happy}% ended happy (Joy 70+). Median savings ${fmtK(a.cash).replace('−','-')}. ${a.burn}% burned out at least once. Average Clarity ${Math.round(a.clar)}.
+
+FINDINGS
+${sim.F.map(f=>`- ${f.h}: ${f.p}`).join('\n')}
+
+FIRST MOVES, ranked by average Joy
+${moves}
+
+FIRST CITIES, ranked by average Joy
+${cities}
+
+STANDOUT LIVES
+${reps}
+
+WRITE
+- 120 to 180 words, plain language, talking to ${pr.name} as "you". Short paragraphs, no headings, no bullet lists, no markdown.
+- Recommend ONE first move to try first, and a city that fits it, and say why in terms of what they said they value. Use only numbers from above, and use at most four of them.
+- Name the main trade-off or risk honestly (money, burnout, or clarity).
+- Give one cheap way to test this in real life within a month, before committing.
+- Say once, briefly, that this is a simulation and not a prediction. No hype, no clichés.
+- On the very last line, write exactly: PLAY: <id> <city code>, using the move's id in square brackets and a 3-letter city code from the city list. That line is read by the game, not shown.`;
+}
+async function writeTake(fresh){
+ const s=state,sim=lastSim;
+ takeCtl?.abort();
+ const ctl=takeCtl=new AbortController();
+ s.take={text:'',busy:true,err:null,play:null};render();
+ const live=()=>state===s&&ctl===takeCtl;
+ const show=t=>t.replace(PLAY_RE,'').replace(/\n?\s*PLAY:[^\n]*$/,'').trim();
+ try{
+  const r=await sampleFn(takePrompt(s.profile,sim),{signal:ctl.signal,cache:fresh?false:{gcTime:86400000},onText:({text})=>{if(!live())return;s.take.text=text;const el=document.getElementById('taketext');if(el){el.textContent=show(text);el.classList.remove('muted')}}});
+  if(!live())return;
+  const m=r.text.match(PLAY_RE);
+  let play=null;
+  if(m&&PATHS[m[1]]&&cityById(m[2])){const p=PATHS[m[1]];play={id:m[1],city:p.city||(p.kind==='gap'&&m[2]==='HOM'?'LIS':m[2])}}
+  s.take={text:show(r.text),busy:false,err:r.truncated?'Claude ran long, so this stops early.':null,play};
+ }catch(e){
+  if(!live())return;
+  const off=AI_OFF_CODES.includes(e?.code);
+  s.take={text:e?.code==='refused'?'':show(e?.text||''),busy:false,play:null,off,
+   err:e?.code==='cancelled'?null:off?"Claude isn't available on this page, so it can't read the results."
+    :e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit.'
+    :e?.code==='session_expired'?'Sign in to Claude again, then try again.'
+    :'Claude could not finish reading the results. Try again.'};
+ }
+ render();
+}
+function vTake(){
+ const s=state,t=s.take;
+ if(!sampleFn&&!t?.text)return '';
+ let body,btns;
+ if(!t){body=`<p class="muted">Claude reads all 1,000 results and tells you, in plain words, which first move to try first, what to watch out for, and how to test it in real life this month. It uses your own Claude account.</p>`;btns=`<button class="btn go" data-act="writeTake">Ask Claude what to try first</button>`}
+ else if(t.busy){body=`<p class="story-text${t.text?'':' muted'}" id="taketext">${t.text?esc(t.text.replace(PLAY_RE,'')):'Claude is reading your 1,000 lives…'}</p>`;btns=`<button class="btn ghost" data-act="stopTake">Stop</button>`}
+ else{
+  body=`${t.text?`<p class="story-text" id="taketext">${esc(t.text)}</p>`:''}${t.err?`<div class="notice">${esc(t.err)}</div>`:''}`;
+  btns=(t.play?`<button class="btn go" data-act="playOpen" data-id="${t.play.id}" data-city="${t.play.city}">Play it: ${esc(PATHS[t.play.id].name)} in ${esc(cityById(t.play.city).name)}</button>`:'')+(t.off?'':`<button class="btn ghost" data-act="rewriteTake">${t.text?'Ask again':'Try again'}</button>`);
+ }
+ return `<section class="panel take"><h3 class="h-sm">Claude's read: what to try first</h3>${body}<div class="row">${btns}</div></section>`;
+}
+
+/* ---------- Claude-written story ---------- */
+let storyCtl=null;
+function storyPrompt(s){
+ const pr=s.profile,top=topValues(s),a=ARCH[top[0]];
+ const years=s.history.map(h=>{
+  const evs=s.log.filter(l=>l.year===h.year).map(l=>`   - "${l.title}": chose "${l.choice}". ${l.out}`).join('\n');
+  return `Year ${h.year} (age ${STAGES[pr.stage].age+h.year-1}): ${PATHS[h.id].name} as ${h.role} in ${cityById(h.city).name}. Joy ${h.joy>=0?'+':''}${h.joy??0}, Energy ${h.energy>=0?'+':''}${h.energy??0}, money ${h.net>=0?'+':''}${fmtK(h.net??0).replace('−','-')} for the year.\n${evs}`;
+ }).join('\n');
+ const badges=ACH.filter(x=>x.test(s)).map(x=>x.name).join(', ')||'none';
+ return `Write a short, personal story of five years in someone's life, from the game "Five Year Run". The player is a young person who doesn't know yet what they want, and they just played through these years to find out.
+
+PLAYER
+${pr.name}, started at age ${STAGES[pr.stage].age} (${STAGES[pr.stage].label.toLowerCase()}), studied ${FIELDS[pr.field]}, started with ${DEBTS[pr.debt].amt?'$'+DEBTS[pr.debt].amt+'k':'no'} student debt.
+Said they value most: ${pr.values.map(v=>VALUES[v]).join(' and ')}. Their choices actually favored: ${VALUES[top[0]]}, then ${VALUES[top[1]]}. The game calls them "${a.name}".
+
+THE FIVE YEARS
+${years}
+
+END STATE (age ${s.age})
+Savings ${fmtK(s.stats.cash).replace('−','-')}. Skills ${Math.round(s.stats.skill)}, Joy ${Math.round(s.stats.joy)}, Energy ${Math.round(s.stats.energy)}, Network ${Math.round(s.stats.network)}, Clarity ${Math.round(s.stats.clarity)} (out of 100). Badges: ${badges}.
+
+HOW TO WRITE IT
+- 180 to 250 words in 2 or 3 short paragraphs. Second person ("you"), past tense. Plain prose: no title, no headings, no lists, no markdown.
+- Use the real details above: name at least three specific choices and the places they happened. You may add small connecting details, but don't invent major events.
+- Find the turning point and give it weight. Be honest about the hard year as well as the good one.
+- Warm, wry, specific. Plain words. No clichés about journeys or chapters, no "little did you know".
+- End with one or two sentences on what these five years suggest this person cares about, including any gap between what they said and what they chose. Say it gently and without preaching.`;
+}
+async function writeStory(fresh){
+ const s=state;
+ storyCtl?.abort();
+ const ctl=storyCtl=new AbortController();
+ s.story={text:'',busy:true,err:null};render();
+ const live=()=>state===s&&ctl===storyCtl;
+ try{
+  const r=await sampleFn(storyPrompt(s),{signal:ctl.signal,cache:fresh?false:{gcTime:86400000},onText:({text})=>{if(!live())return;s.story.text=text;const el=document.getElementById('storytext');if(el){el.textContent=text;el.classList.remove('muted')}}});
+  if(!live())return;
+  s.story={text:r.text,busy:false,err:r.truncated?'Claude ran long, so the story stops early.':null};
+ }catch(e){
+  if(!live())return;
+  const kept=e?.code==='refused'?'':(e?.text||'');
+  const err=e?.code==='cancelled'?null
+   :AI_OFF_CODES.includes(e?.code)?'Claude is not available on this page, so the story could not be written.'
+   :e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit.'
+   :e?.code==='session_expired'?'Sign in to Claude again, then try again.'
+   :'Claude could not finish the story. Try again.';
+  s.story={text:kept,busy:false,err,off:AI_OFF_CODES.includes(e?.code)};
+ }
+ render();
+}
+function vVsSims(s){
+ const sim=lastSim;if(!sim||sim.key!==profileKey(s.profile))return '';
+ const rows=[['joy','Happier than'],['cash','Richer than'],['clarity','Clearer than'],['energy','More rested than']].map(([k,l])=>`<div><b>${percentile(sim,k,s.stats[k])}%</b><span>${l} your simulated lives</span></div>`).join('');
+ const mine=sim.byOpen.findIndex(g=>g.k===s.history[0].id);
+ const note=mine>=0?`Your first move, ${PATHS[s.history[0].id].name}, ranked #${mine+1} of ${sim.byOpen.length} for happiness across the simulations.`:'';
+ return `<section class="panel"><h3 class="h-sm">You vs. your 1,000 simulations</h3><div class="vs">${rows}</div>${note?`<p class="muted">${note}</p>`:''}<div class="row"><button class="btn ghost" data-act="showResults">Back to what we found</button></div></section>`;
+}
+function vStory(){
+ const s=state,st=s.story;
+ if(!sampleFn&&!st?.text)return '';
+ let body,btns;
+ if(!st){body=`<p class="muted">Claude can turn everything you chose into a short story of these five years: the turning point, the hard year, and what it all suggests about you. It uses your own Claude account.</p>`;btns=`<button class="btn go" data-act="writeStory">Write my story</button>`}
+ else if(st.busy){body=`<p class="story-text${st.text?'':' muted'}" id="storytext">${st.text?esc(st.text):'Claude is reading back through your five years…'}</p>`;btns=`<button class="btn ghost" data-act="stopStory">Stop</button>`}
+ else{body=`${st.text?`<p class="story-text" id="storytext">${esc(st.text)}</p>`:''}${st.err?`<div class="notice">${esc(st.err)}</div>`:''}`;btns=st.off?'':`<button class="btn ghost" data-act="rewriteStory">${st.text?'Write it again':'Try again'}</button>${st.text?'<button class="btn ghost" data-act="copyStory" id="copybtn">Copy</button>':''}`}
+ return `<section class="panel"><h3 class="h-sm">Your story</h3>${body}<div class="row">${btns}</div></section>`;
+}
+
+/* ---------- actions ---------- */
+const ACT={
+ toSetup(){state={screen:'setup',draft:state.profile?{...state.profile,values:[...state.profile.values]}:{name:'Alex',stage:'grad',field:'humanities',debt:'some',values:[],ai:true},lastProfile:state.profile};render();window.scrollTo(0,0)},
+ home(){state={screen:'title',profile:state.profile};render();window.scrollTo(0,0)},
+ setDraft(ds){const d=state.draft;if(ds.k==='values'){const i=d.values.indexOf(ds.v);if(i>=0)d.values.splice(i,1);else{d.values.push(ds.v);if(d.values.length>2)d.values.shift()}}else d[ds.k]=ds.v;render()},
+ begin(){const d=state.draft;d.name=(document.getElementById('nm').value.trim()||'Alex').slice(0,24);if(d.values.length<2)return;runSims({...d,values:[...d.values]})},
+ skipSims(){const d=state.draft;d.name=(document.getElementById('nm').value.trim()||'Alex').slice(0,24);if(d.values.length<2)return;state=newLife({...d,values:[...d.values]});render();window.scrollTo(0,0)},
+ rerun(){runSims(state.profile)},
+ showResults(){state={screen:'results',profile:state.profile};render();window.scrollTo(0,0)},
+ playOwn(){state=newLife(state.profile);render();window.scrollTo(0,0)},
+ playOpen(ds){state=newLife(state.profile);const p=PATHS[ds.id];state.pending={id:ds.id};if(p.city||ds.city){state.pending.city=p.city||ds.city;afterCity()}else{state.screen='city';render();window.scrollTo(0,0)}},
+ again(){state=newLife(state.profile);render();window.scrollTo(0,0)},
+ pickPath(ds){const s=state,p=PATHS[ds.id];s.pending={id:ds.id};if(p.city){s.pending.city=p.city;afterCity()}else{s.screen='city';render();window.scrollTo(0,0)}},
+ pickCity(ds){state.pending.city=ds.id;afterCity()},
+ backToPath(){state.screen='path';render()},
+ roll(){doRoll()},
+ accepted(){commit();render();window.scrollTo(0,0)},
+ rejectedBack(){const s=state;s.rejected.push(s.pending.id);applyFx({joy:-3});s.pending=null;s.screen='path';render();window.scrollTo(0,0)},
+ choose(ds){choose(+ds.i)},
+ next(){const s=state;s.step++;if(s.step<2){nextEvent()}else{endYear()}render();window.scrollTo(0,0)},
+ toCross(){const s=state;if(s.year>=5){finish();s.screen='ending'}else{s.year++;s.age++;s.screen='cross'}render();window.scrollTo(0,0)},
+ stay(){const s=state;s.pending={id:s.path.id,city:s.city};commit();render();window.scrollTo(0,0)},
+ change(){state.screen='path';state.mode='pivot';render();window.scrollTo(0,0)},
+ backToCross(){state.screen='cross';render()},
+ askClear(){state.confirmClear=true;render()},
+ cancelClear(){state.confirmClear=false;render()},
+ clearLives(){saveLives([]);state.confirmClear=false;render()},
+ aiRetry(){requestAiEvent();render()},
+ deckNow(){const s=state;aiCtl?.abort();aiCtl=null;s.aiBusy=false;s.aiErr=null;deckEvent();render()},
+ setAi(ds){state.draft.ai=ds.v==='on';render()},
+ writeTake(){writeTake(false)},
+ rewriteTake(){writeTake(true)},
+ stopTake(){takeCtl?.abort()},
+ writeStory(){writeStory(false)},
+ rewriteStory(){writeStory(true)},
+ stopStory(){storyCtl?.abort()},
+ copyStory(){
+  const t=state.story?.text||'',b=document.getElementById('copybtn');
+  const done=()=>{if(b)b.textContent='Copied'};
+  const fallback=()=>{const el=document.getElementById('storytext');if(!el)return;const r=document.createRange();r.selectNodeContents(el);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);if(b)b.textContent='Selected. Press Ctrl+C or ⌘C'};
+  try{navigator.clipboard.writeText(t).then(done,fallback)}catch(e){fallback()}
+ },
+};
+function afterCity(){const s=state;if(needsRoll(s,s.pending.id)){s.screen='apply';s.rollRes=null;render();window.scrollTo(0,0)}else{commit();render();window.scrollTo(0,0)}}
+function doRoll(){
+ const s=state,o=oddsFor(s,s.pending.id,s.pending.city),r=1+Math.floor(Math.random()*100),win=r<=o.total;
+ const dial=document.getElementById('dial'),num=document.getElementById('dialnum'),btn=document.getElementById('rollbtn');
+ if(btn)btn.disabled=true;
+ const settle=()=>{s.rollRes={r,win};if(win)reveal([],0);render()};
+ if(reduced||!dial){settle();return}
+ dial.classList.add('rolling');let t=0;
+ const iv=setInterval(()=>{num.textContent=1+Math.floor(Math.random()*100);if((t+=60)>=1100){clearInterval(iv);settle()}},60);
+}
+
+/* ---------- views ---------- */
+function routeSVG(lines,opts={}){
+ const xs=[160,280,400,520,640],W=700,rowH=86,top=28,H=top+lines.length*rowH;
+ let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Route map of ${lines.length} life paths">`;
+ xs.forEach((x,i)=>g+=`<text class="yr" x="${x}" y="14" text-anchor="middle">YEAR ${i+1}</text>`);
+ lines.forEach((ln,r)=>{
+  const y=top+r*rowH+34;
+  g+=`<text class="nm" x="0" y="${y-2}">${esc(ln.name)}</text><text class="lbl" x="0" y="${y+14}">${esc(ln.sub||'')}</text>`;
+  ln.stops.forEach((st,i)=>{const x1=i===0?xs[0]-28:xs[i]-60,x2=i===4?xs[4]+40:xs[i]+60;g+=`<line class="seg ${st.kind}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>`});
+  for(let i=ln.stops.length;i<5;i++)g+=`<line x1="${xs[i]-60}" y1="${y}" x2="${xs[i]+60}" y2="${y}" stroke="var(--rule)" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round"/>`;
+  ln.stops.forEach((st,i)=>{
+   const x=xs[i],moved=i>0&&ln.stops[i-1].city!==st.city;
+   g+=moved?`<rect class="stn" x="${x-13}" y="${y-9}" width="26" height="18" rx="9"/>`:`<circle class="stn" cx="${x}" cy="${y}" r="8"/>`;
+   g+=`<text class="code" x="${x}" y="${y-17}" text-anchor="middle">${st.city}</text>`;
+   const lbl=PATHS[st.id].name;g+=`<text class="lbl" x="${x}" y="${y+27}" text-anchor="middle">${esc(lbl.length>17?lbl.slice(0,16)+'…':lbl)}</text>`;
+  });
+ });
+ return `<div class="map">${g}</svg></div>`;
+}
+const legend=`<div class="legend"><span><i style="background:var(--job)"></i>Job</span><span><i style="background:var(--gap)"></i>Gap year</span><span><i style="background:var(--study)"></i>Master's</span><span>Pill-shaped stop = moved cities</span></div>`;
+
+function hud(){
+ const s=state,c=cityOf(s);
+ const yrs=[1,2,3,4,5].map(y=>`<span class="${y<s.year?'done':y===s.year?'now':''}">${y}</span>`).join('');
+ const st=STATS.map(([k,l])=>`<div class="stat"><div class="k">${l}<b>${Math.round(s.stats[k])}</b></div><div class="bar"><i class="${s.stats[k]<25?'low':''}" style="width:${s.stats[k]}%"></i></div></div>`).join('');
+ const role=s.path?roleOf(s,s.path.id,s.path.tenure):'Choosing…';
+ return `<div class="hud" aria-label="Your stats">
+  <div class="hud-top"><div class="hud-id"><span class="bullet">${esc(s.profile.name[0].toUpperCase())}</span><div style="min-width:0"><div class="who">${esc(s.profile.name)}, ${s.age}</div><div class="where">${c?c.id+' · ':''}${esc(role)}</div></div></div><div class="years" aria-label="Year ${s.year} of 5">${yrs}</div></div>
+  <div class="stats"><div class="stat cash"><div class="k">Savings</div><b class="${s.stats.cash<0?'neg':''}">${fmtK(s.stats.cash)}</b></div>${st}</div>
+ </div>`;
+}
+function deltaChips(d){return `<div class="deltas">${Object.entries(d).map(([k,v],i)=>`<span class="d ${v>0?'up':'down'}" style="animation-delay:${i*70}ms">${k==='cash'?(v>0?'+':'')+fmtK(v):(v>0?'+':'')+Math.round(v)} ${STAT_LABEL[k]}</span>`).join('')||'<span class="muted">No change</span>'}</div>`}
+
+function vTitle(){
+ const lives=loadLives();
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div></header>
+ <section class="hero"><p class="kicker">A life simulator for people at a fork in the road</p>
+  <h1>Don't know what you want? <span>We'll run your next five years 1,000 times.</span></h1>
+  <p class="lede">Answer four questions. We simulate 1,000 versions of you across 20 first moves and 11 cities: jobs, gap years and master's degrees. Then we show you what we found: what made you happiest, what paid best, what burned you out. Then you play the lives that look interesting.</p>
+  <div class="row"><button class="btn go" data-act="toSetup">Run my 1,000 lives</button>${lastSim&&state.profile&&lastSim.key===profileKey(state.profile)?'<button class="btn ghost" data-act="showResults">See what we found</button>':''}${lives.length?`<a class="btn ghost" href="#lives">Your ${lives.length} li${lives.length>1?'ves':'fe'} so far</a>`:''}</div></section>
+ <section class="panel"><h2 class="h-sm">Three of the thousand ways the next five years could go</h2>${routeSVG(EXAMPLES)}${legend}</section>
+ <section class="steps">
+  <div><b>STEP 1</b><strong>Tell us about you</strong><p>Where you are, what you studied, your debt, what you think matters.</p></div>
+  <div><b>STEP 2</b><strong>We run 1,000 lives</strong><p>Every first move and city, five years each, with the same events, odds and money math as the game.</p></div>
+  <div><b>STEP 3</b><strong>See what we found</strong><p>Your happiest and richest starts, your burnout risks, and what your best lives had in common.</p></div>
+  <div><b>STEP 4</b><strong>Play the ones you like</strong><p>Live a promising life yourself, with events written fresh by Claude, and see if it holds up.</p></div>
+ </section>
+ ${lives.length?vMultiverse(lives):''}`;
+}
+
+function vSetup(){
+ const d=state.draft;
+ const chips=(k,obj)=>Object.entries(obj).map(([v,l])=>`<button type="button" class="chip" data-act="setDraft" data-k="${k}" data-v="${v}" aria-pressed="${d[k]===v}">${typeof l==='string'?l:l.label}</button>`).join('');
+ const vals=Object.entries(VALUES).map(([v,l])=>`<button type="button" class="chip" data-act="setDraft" data-k="values" data-v="${v}" aria-pressed="${d.values.includes(v)}">${l}</button>`).join('');
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="home">Back</button></header>
+ <div class="stage"><p class="kicker">Step 1 of 4</p><h2>Who's playing?</h2></div>
+ <form class="form" id="setup" onsubmit="return false">
+  <div class="field"><label for="nm">Your name</label><input class="input" id="nm" value="${esc(d.name)}" maxlength="24" autocomplete="off"></div>
+  <div class="field"><span class="q">Where are you right now?</span><div class="chips">${chips('stage',STAGES)}</div></div>
+  <div class="field"><span class="q">What did you study?</span><p class="hint">Fields that fit a job give you better odds when you apply.</p><div class="chips">${chips('field',FIELDS)}</div></div>
+  <div class="field"><span class="q">Student debt?</span><div class="chips">${chips('debt',DEBTS)}</div></div>
+  <div class="field"><span class="q">Pick the two things you think matter most to you</span><p class="hint">Your 1,000 simulated selves will choose the way these values suggest. When you play a life yourself, we'll check whether your real choices agree. (${d.values.length}/2 picked)</p><div class="chips">${vals}</div></div>
+  <div class="field"><span class="q">When you play a life yourself, who writes the events?</span><p class="hint">${sampleFn?'Claude can write each moment fresh from your character, path, city and earlier choices, so no two runs match. This uses your own Claude account, and Claude asks you to allow it the first time.':'Claude-written events work when this page is opened on claude.ai. Here you get the classic set of events.'}</p>
+   <div class="chips"><button type="button" class="chip" data-act="setAi" data-v="on" aria-pressed="${!!(d.ai&&sampleFn)}" ${sampleFn?'':'disabled'}>Claude writes them fresh</button><button type="button" class="chip" data-act="setAi" data-v="off" aria-pressed="${!(d.ai&&sampleFn)}">Classic events</button></div></div>
+  <div class="row"><button class="btn go" data-act="begin" ${d.values.length<2?'disabled':''}>Run my 1,000 simulations</button><button type="button" class="linkbtn" data-act="skipSims" ${d.values.length<2?'disabled':''}>Skip and play one life</button></div>
+ </form>`;
+}
+
+function pathMeta(s,id){
+ const p=PATHS[id];const m=[];
+ if(p.kind==='job')m.push(id==='founder'?'Pay: ~$12k unless funded':`Pay: $${p.pay}k base`);
+ if(p.kind==='gap')m.push(`Earn ~$${p.income}k`);
+ if(p.kind==='study')m.push(`${p.years} yr · tuition by city`);
+ if(needsRoll(s,id)){m.push(`Odds ~${oddsFor(s,id,s.city||'HOM').total}%`)}
+ if(p.city)m.push('Hometown only');
+ return m.map(x=>`<span class="tag">${x}</span>`).join('');
+}
+function vPath(){
+ const s=state,pivot=s.mode==='pivot';
+ const groups=['job','gap','study'].map(k=>{
+  const ids=Object.keys(PATHS).filter(id=>PATHS[id].kind===k);
+  const cards=ids.map(id=>{const p=PATHS[id];const locked=id==='founder'&&!founderOpen(s),rej=s.rejected.includes(id),cur=s.path&&s.path.id===id,capped=cur&&((p.kind==='gap'&&s.path.tenure>=2)||(p.kind==='study'&&s.path.yearsLeft<=0));
+   const why=capped?(p.kind==='study'?'You already finished this degree.':'Two years is the limit for one gap year track.'):locked?'Unlock: build a side project, co-found, or reach 50 Skills':rej?'Rejected this year. Try again next year.':'';
+   return `<button class="opt" data-act="pickPath" data-id="${id}" ${locked||rej||capped?'disabled':''}><span class="nm">${p.name}</span><span class="bl">${why||p.blurb}</span><span class="meta">${cur?'<span class="tag cur">Current</span>':''}${pathMeta(s,id)}</span></button>`}).join('');
+  return `<section class="group"><h3><span class="dot ${k}"></span>${KIND[k]}</h3><div class="grid">${cards}</div></section>`;
+ }).join('');
+ const rejNote=s.rejected.length?`<div class="notice">Rejected by ${PATHS[s.rejected[s.rejected.length-1]].name}. That stings (−3 Joy). Pick another move.</div>`:'';
+ return `${hud()}<div class="stage"><p class="kicker">${pivot?`Year ${s.year} · Change course`:'Play a life yourself · Your first move'}</p><h2>${pivot?"What's next?":'How do you want to start?'}</h2>${pivot?`<button class="linkbtn" data-act="backToCross" style="align-self:flex-start">Back to the crossroads</button>`:lastSim&&lastSim.key===profileKey(s.profile)?`<button class="linkbtn" data-act="showResults" style="align-self:flex-start">Back to what we found</button>`:''}</div>${rejNote}${groups}`;
+}
+function vCity(){
+ const s=state,p=PATHS[s.pending.id];
+ const cards=CITIES.filter(c=>!(p.kind==='gap'&&c.id==='HOM')).map(c=>{
+  const m=[`Living: $${c.col}k/yr`];
+  if(p.kind==='job')m.push(`Pay ×${c.sal}`);
+  if(p.kind==='study')m.push(`Tuition: $${Math.round(TUITION[c.region]*p.tuition)}k/yr`);
+  const cur=s.city===c.id;
+  return `<button class="opt" data-act="pickCity" data-id="${c.id}"><span class="code">${c.id}</span><span class="nm">${c.name}</span><span class="bl">${c.vibe}</span><span class="meta">${cur?'<span class="tag cur">You live here</span>':''}${m.map(x=>`<span class="tag">${x}</span>`).join('')}</span></button>`}).join('');
+ return `${hud()}<div class="stage"><p class="kicker"><span class="dot ${p.kind}"></span>${p.name}</p><h2>Where will you live?</h2><button class="linkbtn" data-act="backToPath" style="align-self:flex-start">Pick a different move</button></div><div class="grid">${cards}</div>`;
+}
+function vApply(){
+ const s=state,p=PATHS[s.pending.id],c=cityById(s.pending.city),o=oddsFor(s,s.pending.id,s.pending.city),r=s.rollRes;
+ const verb=p.kind==='study'?'Applying to':'Applying for';
+ const rows=o.rows.map(([l,v],i)=>`<div><span>${l}</span><span>${i===0?v:(v>0?'+':'')+v}</span></div>`).join('')+`<div style="border:0;font-weight:600"><span>Your odds</span><span>${o.total}%</span></div>`;
+ let body;
+ if(!r)body=`<div class="row"><button class="btn go" id="rollbtn" data-act="roll">Send the application</button><button class="linkbtn" data-act="backToPath">Pick something else</button></div>`;
+ else if(r.win)body=`<div class="notice ok">You rolled ${r.r}. You needed ${o.total} or lower. ${p.kind==='study'?"You're admitted!":"You got the offer!"}</div><div class="row"><button class="btn go" data-act="accepted">Start year ${s.year}</button></div>`;
+ else body=`<div class="notice">You rolled ${r.r}. You needed ${o.total} or lower. ${p.kind==='study'?'Not admitted this year.':'They went with someone else.'}</div><div class="row"><button class="btn go" data-act="rejectedBack">Try another move</button></div>`;
+ return `${hud()}<div class="stage"><p class="kicker"><span class="dot ${p.kind}"></span>${verb} ${p.name} · ${c.name}</p><h2>${r?(r.win?'You\'re in.':'Rejected.'):'Roll for it.'}</h2></div>
+ <div class="apply"><div class="dial ${r?(r.win?'win':'lose'):''}" id="dial" style="--p:${o.total}"><div><b id="dialnum">${r?r.r:o.total+'%'}</b><small>${r?'you rolled':'chance'}</small></div></div>
+ <div style="display:flex;flex-direction:column;gap:16px;min-width:0"><div class="breakdown">${rows}</div>${body}</div></div>`;
+}
+function vEvent(){
+ const s=state,ev=evById(s.ev),o=s.outcome,kind=s.path.kind;
+ const head=`<p class="kicker"><span class="dot ${kind}"></span>Year ${s.year} · Moment ${s.step+1} of 2`;
+ const note=s.aiNote?`<div class="notice">${esc(s.aiNote)}</div>`:'';
+ if(s.ev==='ai'&&!ev){
+  const body=s.aiErr?`<p class="txt">${esc(s.aiErr)}</p><div class="row"><button class="btn go" data-act="aiRetry">Try again</button><button class="btn ghost" data-act="deckNow">Use a classic event</button></div>`
+   :`<p class="txt muted">Writing something for ${esc(s.profile.name)} in ${esc(cityOf(s).name)}, based on your path, your stats and what you chose before.</p><div class="writing" aria-hidden="true"><i></i><i></i><i></i></div><div class="row"><button class="linkbtn" data-act="deckNow">Skip and use a classic event</button></div>`;
+  return `${hud()}${note}<article class="event" aria-live="polite" aria-busy="${!s.aiErr}">${head} · Written by Claude</p><h2 style="font-size:clamp(26px,4.5vw,36px);font-weight:800;line-height:1.05">${s.aiErr?'That one did not come through':'Claude is writing your next moment'}</h2>${body}</article>`;
+ }
+ const chs=ev.ch.map((c,i)=>{const odds=c.roll?`<span class="odds">Risky: about ${Math.round(clamp(val(c.roll.p,s),0.05,0.95)*100)}% chance it goes well</span>`:'';
+  return `<button class="choice" data-act="choose" data-i="${i}"><span class="ltr">${'ABC'[i]}</span><span>${esc(c.t)}${odds}</span></button>`}).join('');
+ const outcome=o?`<div class="outcome" id="outcome"><p class="you">You chose: ${esc(o.choice)}</p>${o.roll?`<span class="rollnote ${o.roll.win?'win':'lose'}">${o.roll.win?'It worked':'It didn\'t work out'} · rolled ${o.roll.r}, needed ${o.roll.p} or lower</span>`:''}<p class="res">${esc(o.out)}</p>${deltaChips(o.d)}<div class="row"><button class="btn go" data-act="next">${s.step===0?'Next moment':`Finish year ${s.year}`}</button></div></div>`:'';
+ return `${hud()}${note}<article class="event" aria-live="polite">${head}${FORCED.some(f=>f.id===ev.id)?' · Uh-oh':''}${ev.ai?' · Written by Claude':''}</p>
+  <h2 style="font-size:clamp(26px,4.5vw,36px);font-weight:800;line-height:1.05">${esc(val(ev.title,s))}</h2><p class="txt">${esc(val(ev.text,s))}</p>
+  ${o?'':`<div class="choices">${chs}</div>`}${outcome}</article>`;
+}
+function vYearEnd(){
+ const s=state,sm=s.summary,p=PATHS[s.path.id];
+ const lines=sm.lines.map(([l,v])=>`<div><span>${l}</span><span class="${v<0?'neg':'pos'}">${(v>0?'+':'')+fmtK(v)}</span></div>`).join('');
+ return `${hud()}<div class="stage"><p class="kicker"><span class="dot ${p.kind}"></span>Year ${s.year} in review · ${esc(cityOf(s).name)}</p><h2>${s.year<5?`Year ${s.year} is done.`:'Five years. Done.'}</h2></div>
+ <div class="two"><section class="panel"><h3 class="h-sm">Money</h3><div class="ledger">${lines}<div class="total"><span>Net for the year</span><span class="${sm.net<0?'neg':'pos'}">${(sm.net>0?'+':'')+fmtK(sm.net)}</span></div></div></section>
+ <section class="panel"><h3 class="h-sm">What the year did to you</h3>${deltaChips(sm.d)}${sm.notes.length?`<ul class="tries" style="gap:8px">${sm.notes.map(n=>`<li><span style="color:var(--ink)">${esc(n)}</span></li>`).join('')}</ul>`:''}</section></div>
+ <div class="row"><button class="btn go" data-act="toCross">${s.year<5?`On to year ${s.year+1}`:'See how your story ends'}</button></div>`;
+}
+function vCross(){
+ const s=state,p=PATHS[s.path.id];
+ let stay=null;
+ if(p.kind==='study'&&s.path.yearsLeft>0)stay={t:`Finish your ${p.name}`,d:`${s.path.yearsLeft} year left. The degree boosts job odds and salaries.`};
+ else if(p.kind==='study')stay=null;
+ else if(s.flags.jobLost)stay=null;
+ else if(p.kind==='gap'&&s.path.tenure>=2)stay=null;
+ else if(p.kind==='gap')stay={t:'Extend the gap year',d:'Cheap on the soul. A second year teaches you less. Two years max.'};
+ else stay={t:`Stay at ${p.name}`,d:s.path.tenure===1?`Year ${s.path.tenure+1} there. +8% pay per year, Senior title next year.`:`Year ${s.path.tenure+1} there. +8% pay per year you stay.`};
+ const headline=p.kind==='gap'&&s.path.tenure>=2?'Two gap years. Time for something new.':p.kind==='study'&&s.path.yearsLeft<=0?'You graduated. Now what?':s.flags.jobLost?'Your job is gone. Now what?':'Stay, or switch?';
+ const warn=s.flags.handcuffs&&s.year<s.flags.handcuffs?`<div class="notice">Leaving ${p.name} before year ${s.flags.handcuffs} means paying back the $15k bonus.</div>`:'';
+ const changeLabel=p.kind==='study'&&s.path.yearsLeft>0?['Drop out and do something else','Lose the tuition you paid. Keep your sanity.']:['Change course','A new job, a gap year, a degree, or a new city.'];
+ return `${hud()}<div class="stage"><p class="kicker">The crossroads · Year ${s.year} begins · You're ${s.age}</p><h2>${headline}</h2></div>${warn}
+ <div class="grid">${stay?`<button class="opt" data-act="stay"><span class="nm">${stay.t}</span><span class="bl">${stay.d}</span><span class="meta"><span class="tag">${cityOf(s).name}</span></span></button>`:''}
+ <button class="opt" data-act="change"><span class="nm">${changeLabel[0]}</span><span class="bl">${changeLabel[1]}</span><span class="meta"><span class="tag">Opens all 20 paths</span></span></button></div>`;
+}
+function vEnding(){
+ const s=state,top=topValues(s),a=ARCH[top[0]],max=Math.max(1,...Object.values(s.revealed));
+ const said=s.profile.values,match=said.includes(top[0]),both=said.includes(top[0])&&said.includes(top[1]);
+ const verdict=both?'Your choices matched what you said, on both counts. That is rarer than it sounds. Trust it.'
+  :match?`You were right about ${VALUES[top[0]]}. You underrated ${VALUES[top[1]]}: it came up again and again.`
+  :`You said ${said.map(v=>VALUES[v]).join(' and ')} mattered most. When it came to actual choices, you kept picking ${VALUES[top[0]]} and ${VALUES[top[1]]}. Pay attention to that gap.`;
+ const vrows=Object.keys(VALUES).sort((x,y)=>s.revealed[y]-s.revealed[x]).map((k,i)=>`<div class="vrow ${i<2?'top':''}"><span>${VALUES[k]}</span><div class="bar"><i style="width:${s.revealed[k]/max*100}%"></i></div><span>${s.revealed[k]}</span></div>`).join('');
+ const best=[...s.history].sort((x,y)=>(y.joy||0)-(x.joy||0))[0],worst=[...s.history].sort((x,y)=>(x.joy||0)-(y.joy||0))[0];
+ const yr=h=>`Year ${h.year}: ${PATHS[h.id].name} in ${cityById(h.city).name}`;
+ const ach=ACH.map(x=>`<div class="${x.test(s)?'got':''}"><strong>${x.name}</strong><span>${x.d}</span></div>`).join('');
+ const got=ACH.filter(x=>x.test(s)).length;
+ const tries=[TRY[top[0]],TRY[top[1]],s.stats.clarity<60?['Play another life with the opposite opening move.','The point is not to pick right on the first try. It is to learn what you react to.']:['Write the one-year version of this life on a single page.','Your clarity is high. Turn it into a plan you could start next month.']];
+ const stats=[['Savings',fmtK(s.stats.cash)],...STATS.map(([k,l])=>[l,Math.round(s.stats[k])])];
+ const city=Object.entries(s.history.reduce((m,h)=>(m[h.city]=(m[h.city]||0)+1,m),{})).sort((a,b)=>b[1]-a[1])[0][0];
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="home">Home</button></header>
+ <section class="verdict"><p class="kicker">${esc(s.profile.name)} · age ${s.age} · five years later · mostly in ${cityById(city).name}</p><h2>${a.name}</h2><p class="lede">${a.line}</p></section>
+ <section class="panel"><h3 class="h-sm">Your route</h3>${routeSVG([{name:s.profile.name,sub:a.name,stops:s.history}])}${legend}</section>
+ ${vVsSims(s)}
+ ${vStory()}
+ <section class="panel"><h3 class="h-sm">Final ledger</h3><div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${stats.map(([l,v])=>`<div class="stat"><span class="kicker">${l}</span><span class="mono" style="font-size:24px">${v}</span></div>`).join('')}</div></section>
+ <section class="two"><div class="panel"><h3 class="h-sm">What you said vs. what you chose</h3><p>${verdict}</p><div class="chips">${said.map(v=>`<span class="tag">You said: ${VALUES[v]}</span>`).join('')}</div><div class="vals">${vrows}</div></div>
+ <div class="panel"><h3 class="h-sm">Highs and lows</h3><div class="highlights" style="grid-template-columns:1fr"><div><span class="kicker">Happiest year</span><strong>${yr(best)}</strong><span class="muted">Joy ${best.joy>=0?'+':''}${best.joy}</span></div><div><span class="kicker">Hardest year</span><strong>${yr(worst)}</strong><span class="muted">Joy ${worst.joy>=0?'+':''}${worst.joy}</span></div></div></div></section>
+ <section class="panel"><h3 class="h-sm">Try it for real this month</h3><p class="muted">Small, cheap experiments that test what this life suggested about you.</p><ul class="tries">${tries.map(t=>`<li><strong>${t[0]}</strong><span>${t[1]}</span></li>`).join('')}</ul></section>
+ <section class="panel"><h3 class="h-sm">Badges · ${got} of ${ACH.length}</h3><div class="ach">${ach}</div></section>
+ <div class="row"><button class="btn go" data-act="again">Live another life as ${esc(s.profile.name)}</button><button class="btn ghost" data-act="toSetup">New character</button></div>
+ ${vMultiverse(loadLives())}`;
+}
+function vMultiverse(lives){
+ if(!lives.length)return '';
+ const keys=[['cash','Savings'],['joy','Joy'],['energy','Energy'],['skill','Skills'],['clarity','Clarity']];
+ const best=Object.fromEntries(keys.map(([k])=>[k,Math.max(...lives.map(l=>l.final[k]))]));
+ const rows=lives.map((l,i)=>`<tr><td><strong>Life ${i+1}</strong><br><span class="muted">${esc(l.arch)}</span></td><td class="mono">${l.stops.map(x=>x.city).join(' → ')}</td>${keys.map(([k])=>`<td class="num ${lives.length>1&&l.final[k]===best[k]?'best':''}">${k==='cash'?fmtK(l.final[k]):Math.round(l.final[k])}</td>`).join('')}</tr>`).join('');
+ const happiest=lives.reduce((a,b)=>b.final.joy>a.final.joy?b:a),idx=lives.indexOf(happiest)+1;
+ const clear=state.confirmClear?`<div class="confirm"><span>Delete all saved lives from this browser?</span><button class="btn ghost" data-act="clearLives">Delete</button><button class="linkbtn" data-act="cancelClear">Keep them</button></div>`:`<button class="linkbtn" data-act="askClear" style="align-self:flex-start">Clear saved lives</button>`;
+ return `<section class="panel" id="lives"><h3 class="h-sm">Your multiverse</h3><p class="muted">Every life you finish is saved in this browser. ${lives.length>1?`Your happiest so far is Life ${idx}, as ${esc(happiest.arch.replace('The ','the '))}. Green marks the best of each column.`:'Play another to compare.'}</p>
+ ${routeSVG(lives.map((l,i)=>({name:`Life ${i+1}`,sub:l.arch,stops:l.stops})))}
+ <div class="table-wrap"><table><thead><tr><th>Life</th><th>Route</th><th class="num">Savings</th><th class="num">Joy</th><th class="num">Energy</th><th class="num">Skills</th><th class="num">Clarity</th></tr></thead><tbody>${rows}</tbody></table></div>${clear}</section>`;
+}
+
+function vSimming(){
+ const s=state;
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div></header>
+ <section class="stage simrun"><p class="kicker">Simulating ${esc(s.profile.name)}</p><h2>Running your next five years <span class="mono" id="simcount">${s.done.toLocaleString()}</span> of 1,000 times</h2>
+  <div class="simtrack" role="progressbar" aria-label="Simulations run" aria-valuemin="0" aria-valuemax="1000"><i id="simbar" style="width:${s.done/10}%"></i></div>
+  <p class="mono muted simpeek" id="simpeek">${s.peek?esc(peekLine(s.peek,s.done)):'Setting up the board…'}</p>
+  <p class="muted">Each version of you picks a first move and a city at random, then makes choices the way you said you would. Same events, same odds, same money math as the game.</p></section>`;
+}
+function scatterSVG(sim){
+ const W=680,H=330,ml=40,mr=14,mt=14,mb=42,pts=sim.pts;
+ const xs=pts.map(p=>p.x).sort((a,b)=>a-b);
+ let lo=xs[Math.floor(xs.length*0.01)],hi=xs[Math.ceil(xs.length*0.99)-1];
+ const span=Math.max(10,hi-lo),step=[10,20,25,50,100,200].find(s=>span/s<=6)||200;
+ lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;if(hi===lo)hi=lo+step;
+ const X=v=>ml+(clamp(v,lo,hi)-lo)/(hi-lo)*(W-ml-mr),Y=v=>mt+(100-v)/100*(H-mt-mb);
+ let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Scatter plot of ${pts.length} simulated lives: savings against Joy, colored by first move">`;
+ for(const v of [0,25,50,75,100])g+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${ml-8}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+ for(let v=lo;v<=hi;v+=step)g+=`<text class="ax" x="${X(v)}" y="${H-mb+18}" text-anchor="middle">${fmtK(v)}</text>`;
+ if(lo<0&&hi>0)g+=`<line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${mt}" y2="${H-mb}"/>`;
+ g+=`<text class="ax" x="${(W+ml)/2}" y="${H-6}" text-anchor="middle">Savings at the end of year 5</text>`;
+ pts.forEach(p=>{g+=`<circle class="pt ${p.k}" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="4"><title>${esc(PATHS[p.o].name)} in ${esc(cityById(p.c).name)} first · Joy ${Math.round(p.y)} · ${fmtK(p.x)}</title></circle>`});
+ return `<div class="map scatter">${g}</svg></div>`;
+}
+function vResults(){
+ const sim=lastSim,s=state,pr=s.profile,a=sim.all,age=STAGES[pr.stage].age+4;
+ const tiles=[[`${a.happy}%`,'ended happy (Joy 70 or more)'],[fmtK(a.cash),`median savings at age ${age}`],[`${a.burn}%`,'burned out at least once'],[`${Math.round(a.clar)}`,'average Clarity, out of 100']];
+ const maxJoy=100;
+ const rows=sim.byOpen.map((g,i)=>{const p=PATHS[g.k];return `<tr class="${i<3?'lead':''}"><td><span class="dot ${p.kind}"></span>${p.name}</td><td class="num">${g.n}</td><td class="barcell"><span class="hbar"><i class="${p.kind}" style="width:${g.joy/maxJoy*100}%"></i></span><span class="mono">${Math.round(g.joy)}</span></td><td class="num">${fmtK(g.cash)}</td><td class="num">${g.burn}%</td><td class="num">${Math.round(g.clar)}</td><td><button class="linkbtn" data-act="playOpen" data-id="${g.k}">Play</button></td></tr>`}).join('');
+ const cities=sim.byCity.map(g=>{const c=cityById(g.k);return `<tr><td><span class="mono">${c.id}</span> ${c.name}</td><td class="num">${g.n}</td><td class="barcell"><span class="hbar"><i class="neutral" style="width:${g.joy}%"></i></span><span class="mono">${Math.round(g.joy)}</span></td><td class="num">${fmtK(g.cash)}</td><td class="num">${g.burn}%</td></tr>`}).join('');
+ const reps=sim.reps.map(r=>({name:r.label,sub:`Joy ${Math.round(r.l.f.joy)} · ${fmtK(r.l.f.cash)}`,stops:r.l.stops}));
+ const repBtns=sim.reps.map(r=>`<button class="btn ghost" data-act="playOpen" data-id="${r.l.open}" data-city="${r.l.openCity}">Play the ${r.label.toLowerCase().replace(' life','')} start: ${PATHS[r.l.open].name} in ${cityById(r.l.openCity).name}</button>`).join('');
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="toSetup">Change my answers</button></header>
+ <section class="verdict"><p class="kicker">${esc(pr.name)} · ${STAGES[pr.stage].label.toLowerCase()} · ${FIELDS[pr.field]} · values ${pr.values.map(v=>VALUES[v]).join(' + ')}</p>
+  <h2 class="found">We ran 1,000 versions of your next five years. <span>Here's what we found.</span></h2>
+  <p class="lede">Every simulated ${esc(pr.name)} started from where you are now, picked a random first move and city, and made choices leaning toward ${pr.values.map(v=>VALUES[v]).join(' and ')}, the way you said you would.</p></section>
+ <section class="tiles">${tiles.map(t=>`<div><b>${t[0]}</b><span>${t[1]}</span></div>`).join('')}</section>
+ ${vTake()}
+ <section class="findings">${sim.F.map(f=>`<div class="panel"><h3>${esc(f.h)}</h3><p>${esc(f.p)}</p></div>`).join('')}</section>
+ <section class="panel"><h3 class="h-sm">All 1,000 lives, plotted</h3><p class="muted">Each dot is one life: how much Joy it ended with and how much money it saved. Color shows the first move. Hover a dot for details.</p>
+  <div class="legend"><span><i style="background:var(--job)"></i>Started with a job (${sim.byKind.job?.n||0})</span><span><i style="background:var(--gap)"></i>Gap year (${sim.byKind.gap?.n||0})</span><span><i style="background:var(--study)"></i>Master's (${sim.byKind.study?.n||0})</span></div>
+  <div class="ylab mono">Joy</div>${scatterSVG(sim)}</section>
+ <section class="panel"><h3 class="h-sm">Every first move, ranked by how happy it made you</h3><p class="muted">Average across the lives that started with each move. The top three are highlighted. Savings are medians.</p>
+  <div class="table-wrap"><table class="rank"><thead><tr><th>First move</th><th class="num">Lives</th><th>Avg Joy</th><th class="num">Savings</th><th class="num">Burnout</th><th class="num">Clarity</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>
+ <section class="panel"><h3 class="h-sm">Where you started</h3>
+  <div class="table-wrap"><table class="rank"><thead><tr><th>First city</th><th class="num">Lives</th><th>Avg Joy</th><th class="num">Savings</th><th class="num">Burnout</th></tr></thead><tbody>${cities}</tbody></table></div></section>
+ <section class="panel"><h3 class="h-sm">Three lives worth trying for yourself</h3><p class="muted">Start where these lives started. Your version will play out differently, and that's the point: it shows you how you react when it's actually you deciding.</p>
+  ${routeSVG(reps)}${legend}<div class="stackbtns">${repBtns}</div></section>
+ <div class="row"><button class="btn go" data-act="playOwn">Pick my own first move</button><button class="btn ghost" data-act="rerun">Run 1,000 more</button></div>`;
+}
+
+function render(){
+ const v={title:vTitle,setup:vSetup,simming:vSimming,results:vResults,path:vPath,city:vCity,apply:vApply,event:vEvent,yearEnd:vYearEnd,cross:vCross,ending:vEnding}[state.screen]||vTitle;
+ app.innerHTML=v();
+}
+app.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const f=ACT[el.dataset.act];if(f){e.preventDefault();f(el.dataset)}});
+app.addEventListener('input',e=>{if(e.target.id==='nm'&&state.draft)state.draft.name=e.target.value});
+
+window.claude?.hot?.snapshot?.(()=>({state,lastSim}));
+function start(data){
+ state=(data&&data.state)?data.state:{screen:'title'};
+ if(data&&data.lastSim)lastSim=data.lastSim;
+ if(state.screen==='simming')state={screen:lastSim?'results':'title',profile:state.profile};
+ if(state.screen==='results'&&!lastSim)state={screen:'title',profile:state.profile};
+ if(state.aiBusy){state.aiBusy=false;if(!state.aiEv)state.aiErr='The page reloaded while Claude was writing. Try again, or use a classic event.'}
+ if(state.take?.busy){state.take.busy=false;state.take.err='The page reloaded while Claude was writing. Try again.'}
+ if(state.story?.busy){state.story.busy=false;state.story.err='The page reloaded while Claude was writing. Try again.'}
+ render();
+ window.claude?.use?.('sample').then(f=>{sampleFn=f||null;if(['setup','title','ending','results'].includes(state.screen))render()}).catch(()=>{});
+}
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+</script>
+
+</html>
