@@ -1,6 +1,6 @@
 // Optional AI proxy for the website: forwards the game's prompts to any
 // OpenAI-compatible chat API using the site owner's key, so visitors don't need one.
-// Off unless AI_MODEL is set (plus AI_API_KEY for hosted services).
+// Off until both AI_MODEL and AI_API_KEY are set (or AI_NO_KEY=1 for a keyless local server).
 //
 //   AI_BASE_URL     API address, default https://api.openai.com/v1
 //                   e.g. https://openrouter.ai/api/v1, https://api.groq.com/openai/v1,
@@ -10,6 +10,7 @@
 //   AI_MODEL_QUICK  optional faster model for in-game events (defaults to AI_MODEL)
 //   AI_LABEL        optional name shown to players (defaults to AI_MODEL)
 //   AI_MAX_TOKENS   optional reply cap, default 900, at most 1500
+//   AI_NO_KEY       set to 1 only for a server that needs no key
 //
 // Every request costs the site owner money. The checks below stop casual reuse
 // (same-site origin, game prompts only, size caps) but are not real rate limiting.
@@ -28,7 +29,7 @@ export default async function handler(req) {
   const env = process.env;
   const base = (env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
   const model = env.AI_MODEL;
-  const enabled = Boolean(model && (env.AI_API_KEY || env.AI_BASE_URL));
+  const enabled = Boolean(model && (env.AI_API_KEY || env.AI_NO_KEY === '1'));
 
   if (req.method === 'GET') return json({ enabled, label: enabled ? env.AI_LABEL || model : null });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);

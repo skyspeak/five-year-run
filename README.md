@@ -20,10 +20,11 @@ Set these in the Vercel project settings, then redeploy:
 | --- | --- |
 | `AI_BASE_URL` | API address. Default `https://api.openai.com/v1`. Examples: `https://openrouter.ai/api/v1`, `https://api.groq.com/openai/v1`, `https://generativelanguage.googleapis.com/v1beta/openai` |
 | `AI_API_KEY` | That service's API key |
-| `AI_MODEL` | Model for stories and the results read. The proxy stays off until this is set |
+| `AI_MODEL` | Model for stories and the results read. The proxy stays off until this and `AI_API_KEY` are set |
 | `AI_MODEL_QUICK` | Optional faster model for in-game events |
 | `AI_LABEL` | Optional name shown to players |
 | `AI_MAX_TOKENS` | Optional reply cap (default 900, max 1500) |
+| `AI_NO_KEY` | Set to `1` only for a server that needs no key |
 
 Every request is billed to that key. The proxy accepts only same-site requests carrying the game's own prompts, with size caps, but it has no real rate limiting, so set a spending limit with your provider.
 

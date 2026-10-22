@@ -668,7 +668,7 @@ function evById(id){return id==='ai'?state.aiEv:ALL_EVENTS.find(e=>e.id===id)}
    Every adapter rejects with {code, message, text?}. */
 const PRESETS=[
  {id:'openai',name:'OpenAI',base:'https://api.openai.com/v1',model:'gpt-4o-mini'},
- {id:'openrouter',name:'OpenRouter (hundreds of models)',base:'https://openrouter.ai/api/v1',model:'meta-llama/llama-3.3-70b-instruct',note:'One key gives you models from many companies. Paste any model name from openrouter.ai/models.'},
+ {id:'openrouter',name:'OpenRouter (hundreds of models)',base:'https://openrouter.ai/api/v1',model:'openai/gpt-6-luna',note:'One key gives you models from many companies. Paste any model name from openrouter.ai/models.'},
  {id:'gemini',name:'Google Gemini',base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-2.0-flash'},
  {id:'anthropic',name:'Anthropic',base:'https://api.anthropic.com/v1',model:'claude-haiku-5-5',headers:{'anthropic-dangerous-direct-browser-access':'true'}},
  {id:'groq',name:'Groq',base:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile'},
