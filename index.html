@@ -259,6 +259,19 @@ table.rank tr.lead td:first-child{font-weight:600}
 .vs b{font-family:var(--f-mono);font-weight:500;font-size:26px}
 .vs span{font-size:13px;color:var(--muted)}
 .take{border:2px solid var(--go)}
+.ainote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ainote .linkbtn{font-size:12px;padding:0}
+.modal{position:fixed;inset:0;z-index:20;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(4px);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
+.sheet{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:22px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.srcs{display:flex;flex-direction:column;gap:8px}
+.srcopt{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--surface-2);border:2px solid var(--rule);border-radius:12px;padding:12px 14px;cursor:pointer}
+.srcopt span{font-size:13px;color:var(--muted)}
+.srcopt[aria-pressed="true"]{border-color:var(--ink)}
+.aiform{display:flex;flex-direction:column;gap:6px}
+.aiform label{font-size:13px;font-weight:600;margin-top:4px}
+.aiform .input{max-width:none;font-size:15px;padding:10px 12px}
+.aitest{font-size:12px;color:var(--muted)}
+.aiform .hint{font-size:13px;color:var(--muted);margin:4px 0 0}
 .writing{display:flex;gap:8px;padding-block:6px}
 .writing i{width:12px;height:12px;border-radius:50%;background:var(--go);animation:blink 1.2s ease-in-out infinite}
 .writing i:nth-child(2){animation-delay:.2s;background:var(--gap)} .writing i:nth-child(3){animation-delay:.4s;background:var(--study)}
@@ -646,10 +659,149 @@ function deckEvent(){
 }
 function evById(id){return id==='ai'?state.aiEv:ALL_EVENTS.find(e=>e.id===id)}
 
-/* ---------- Claude-written events ---------- */
-let sampleFn=null,aiCtl=null;
-const AI_OFF_CODES=['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'];
-const aiOn=s=>!!(s.profile.ai&&sampleFn&&!s.aiOff);
+/* ---------- AI provider layer ----------
+   Every AI feature calls aiText() or aiJson(); none of them knows which model answers.
+   - byok:   any OpenAI-compatible chat API with the player's own key, called from the browser
+             (OpenAI, OpenRouter, Gemini, Anthropic, Groq, Mistral, DeepSeek, Ollama, LM Studio...).
+   - server: this site's /api/ai proxy, on when the site owner sets AI_* environment variables.
+   - host:   the claude.ai Artifact runtime, the only option when the page runs as an Artifact.
+   Every adapter rejects with {code, message, text?}. */
+const PRESETS=[
+ {id:'openai',name:'OpenAI',base:'https://api.openai.com/v1',model:'gpt-4o-mini'},
+ {id:'openrouter',name:'OpenRouter (hundreds of models)',base:'https://openrouter.ai/api/v1',model:'meta-llama/llama-3.3-70b-instruct',note:'One key gives you models from many companies. Paste any model name from openrouter.ai/models.'},
+ {id:'gemini',name:'Google Gemini',base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-2.0-flash'},
+ {id:'anthropic',name:'Anthropic',base:'https://api.anthropic.com/v1',model:'claude-haiku-5-5',headers:{'anthropic-dangerous-direct-browser-access':'true'}},
+ {id:'groq',name:'Groq',base:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile'},
+ {id:'mistral',name:'Mistral',base:'https://api.mistral.ai/v1',model:'mistral-small-latest'},
+ {id:'deepseek',name:'DeepSeek',base:'https://api.deepseek.com/v1',model:'deepseek-chat'},
+ {id:'ollama',name:'Ollama (on this computer)',base:'http://localhost:11434/v1',model:'llama3.1',nokey:true,note:"Start Ollama with OLLAMA_ORIGINS set to this site's address so the page can reach it."},
+ {id:'lmstudio',name:'LM Studio (on this computer)',base:'http://localhost:1234/v1',model:'local-model',nokey:true,note:"Turn on CORS in LM Studio's local server settings."},
+ {id:'custom',name:'Other OpenAI-compatible service',base:'',model:''},
+];
+const AI_LS='five-year-run-ai-v1';
+const AI={host:null,server:null,inArtifact:!!window.claude,cfg:{},cache:new Map(),panel:false,test:null};
+try{AI.cfg=JSON.parse(localStorage.getItem(AI_LS)||'{}')||{}}catch(e){AI.cfg={}}
+function saveAiCfg(){try{localStorage.setItem(AI_LS,JSON.stringify(AI.cfg))}catch(e){}}
+const presetOf=id=>PRESETS.find(p=>p.id===id)||PRESETS[PRESETS.length-1];
+function aiSources(){const o=[];if(AI.host)o.push('host');if(AI.server)o.push('server');if(!AI.inArtifact)o.push('byok');return o}
+function aiProvider(){
+ const c=AI.cfg,ok={host:!!AI.host,server:!!AI.server,byok:!AI.inArtifact&&!!(c.base&&c.model&&(c.key||presetOf(c.preset).nokey))};
+ if(c.mode==='off')return null;
+ if(c.mode)return ok[c.mode]?c.mode:null;
+ return ok.host?'host':ok.server?'server':null;
+}
+const aiReady=()=>!!aiProvider();
+function aiWho(){const p=aiProvider();return p==='host'?'Claude':p==='server'?(AI.server.label||'The AI'):p==='byok'?AI.cfg.model:'The AI'}
+function aiLabel(){const p=aiProvider();return p==='host'?'Claude via claude.ai':p==='server'?`${AI.server.label||'AI'}, provided by this site`:p==='byok'?`${AI.cfg.model} via ${presetOf(AI.cfg.preset).name.replace(/ \(.*\)$/,'')}`:'no AI'}
+const AI_OFF_CODES=['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed','not_configured'];
+function aiErrText(e){
+ const c=e?.code;
+ return AI_OFF_CODES.includes(c)?"AI isn't available right now. Check AI settings."
+  :c==='rate_limited'?`${aiWho()} is busy, or you've reached a usage limit. Try again in a bit.`
+  :c==='auth'?'The AI service rejected your API key. Check it in AI settings.'
+  :c==='not_found'?"The AI service couldn't find that address or model. Check AI settings."
+  :c==='bad_request'?'The AI service refused the request. The model name may be wrong. Check AI settings.'
+  :c==='network'?"Couldn't reach the AI service. Check the address in AI settings, and that the service accepts requests from web pages."
+  :c==='session_expired'?'Sign in again, then try again.'
+  :c==='invalid_json'?'The AI wrote something the game could not use.'
+  :`${aiWho()} could not finish. Try again.`;
+}
+async function aiText(prompt,o={}){
+ const p=aiProvider();
+ if(!p)throw {code:'not_configured',message:'No AI is set up.'};
+ const ck=o.cache?`${p}|${p==='byok'?AI.cfg.base+'|'+AI.cfg.model:''}|${prompt}`:null;
+ if(ck&&AI.cache.has(ck)){const t=AI.cache.get(ck);o.onText?.({text:t,delta:t});return {text:t,truncated:false}}
+ let r;
+ if(p==='host')r=await AI.host(prompt,{signal:o.signal,cache:false,...(o.quick?{modelTier:'quick'}:{}),onText:o.onText});
+ else if(p==='server')r=await streamChat('/api/ai',{'Content-Type':'application/json'},{prompt,quick:!!o.quick,maxTokens:o.maxTokens},o);
+ else{
+  const c=AI.cfg,pre=presetOf(c.preset),headers={'Content-Type':'application/json',...(pre.headers||{})};
+  if(c.key)headers.Authorization='Bearer '+c.key;
+  r=await streamChat(c.base.replace(/\/+$/,'')+'/chat/completions',headers,{model:c.model,messages:[{role:'user',content:prompt}],stream:true,max_tokens:o.maxTokens||900},o);
+ }
+ if(!r.text||!r.text.trim())throw {code:'empty_completion',message:'The model returned no text.'};
+ if(ck&&!r.truncated)AI.cache.set(ck,r.text);
+ return r;
+}
+/* POST an OpenAI-style chat request and read the streamed (SSE) or plain JSON reply. */
+async function streamChat(url,headers,body,o){
+ let res;
+ try{res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:o.signal})}
+ catch(e){throw e?.name==='AbortError'?{code:'cancelled',message:'Stopped.'}:{code:'network',message:String(e?.message||e)}}
+ if(!res.ok){
+  let detail='';try{detail=(await res.text()).slice(0,300)}catch(e){}
+  const s=res.status;
+  throw {code:/not_configured/.test(detail)?'not_configured':s===401||s===403?'auth':s===404?'not_found':s===429?'rate_limited':s===400||s===422?'bad_request':'upstream_error',message:`HTTP ${s} ${detail}`};
+ }
+ if(!(res.headers.get('content-type')||'').includes('event-stream')){
+  const j=await res.json().catch(()=>null),ch=j?.choices?.[0],t=ch?.message?.content||'';
+  if(t)o.onText?.({text:t,delta:t});
+  return {text:t,truncated:ch?.finish_reason==='length'};
+ }
+ const reader=res.body.getReader(),dec=new TextDecoder();
+ let buf='',text='',truncated=false;
+ try{
+  for(;;){
+   const {done,value}=await reader.read();if(done)break;
+   buf+=dec.decode(value,{stream:true});
+   let i;
+   while((i=buf.indexOf('\n'))>=0){
+    const line=buf.slice(0,i).trim();buf=buf.slice(i+1);
+    if(!line.startsWith('data:'))continue;
+    const d=line.slice(5).trim();if(!d||d==='[DONE]')continue;
+    let j;try{j=JSON.parse(d)}catch(e){continue}
+    if(j.error)throw {code:'upstream_error',message:String(j.error.message||j.error)};
+    const ch=j.choices?.[0],delta=ch?.delta?.content||'';
+    if(ch?.finish_reason==='length')truncated=true;
+    if(delta){text+=delta;o.onText?.({text,delta})}
+   }
+  }
+ }catch(e){
+  if(e?.name==='AbortError')throw {code:'cancelled',message:'Stopped.',text};
+  throw e?.code?{...e,text}:{code:'upstream_error',message:String(e?.message||e),text};
+ }
+ return {text,truncated};
+}
+function parseLooseJson(t){
+ try{return JSON.parse(t)}catch(e){}
+ const f=t.match(/```(?:json)?\s*([\s\S]*?)```/);
+ if(f){try{return JSON.parse(f[1])}catch(e){}}
+ const a=t.search(/[\[{]/),b=Math.max(t.lastIndexOf('}'),t.lastIndexOf(']'));
+ if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1))}catch(e){}}
+ return undefined;
+}
+async function aiJson(prompt,o={}){
+ const r=await aiText(prompt,o),v=parseLooseJson(r.text);
+ if(v===undefined)throw {code:'invalid_json',message:'The reply was not JSON.',text:r.text};
+ return v;
+}
+function vAiPanel(){
+ const c=AI.cfg,cur=c.mode||aiProvider()||(AI.inArtifact?'host':'byok');
+ const label={host:'Claude on claude.ai',server:`This site's AI${AI.server?.label?' ('+esc(AI.server.label)+')':''}`,byok:'My own API key',off:'Off'};
+ const desc={host:'Uses your claude.ai account. Claude asks you to allow it the first time.',
+  server:'Set up by whoever runs this site. Nothing to configure.',
+  byok:'Any OpenAI-compatible service: OpenAI, OpenRouter, Google Gemini, Anthropic, Groq, Mistral, DeepSeek, or a model on your own computer with Ollama or LM Studio.',
+  off:'Built-in events only. The simulations and the game still work.'};
+ const opts=[...aiSources(),'off'].map(k=>`<button type="button" class="srcopt" data-act="aiMode" data-v="${k}" aria-pressed="${cur===k}"><strong>${label[k]}</strong><span>${desc[k]}</span></button>`).join('');
+ const pre=presetOf(c.preset);
+ const byok=cur==='byok'&&!AI.inArtifact?`<div class="aiform">
+  <label for="aipreset">Service</label><select id="aipreset" class="input">${PRESETS.map(p=>`<option value="${p.id}" ${p.id===pre.id?'selected':''}>${p.name}</option>`).join('')}</select>
+  <label for="aibase">API address</label><input id="aibase" class="input" value="${esc(c.base||'')}" placeholder="https://…/v1" autocomplete="off" spellcheck="false">
+  <label for="aimodel">Model</label><input id="aimodel" class="input" value="${esc(c.model||'')}" placeholder="model name" autocomplete="off" spellcheck="false">
+  <label for="aikey">API key${pre.nokey?' (not needed)':''}</label><input id="aikey" class="input" type="password" value="${esc(c.key||'')}" autocomplete="off" spellcheck="false">
+  <p class="hint">${pre.note?esc(pre.note)+' ':''}Your key is saved only in this browser and is sent only to the address above.</p></div>`:'';
+ const test=cur!=='off'?`<div class="row"><button type="button" class="btn ghost" data-act="aiTest" ${aiReady()?'':'disabled'}>Test it</button><span id="aitest" class="mono aitest" aria-live="polite">${esc(AI.test||(aiReady()?'':'Fill in the fields above to turn AI on.'))}</span></div>`:'';
+ return `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="aih"><div class="sheet">
+  <div class="top"><h3 id="aih" class="h-sm">AI settings</h3><button type="button" class="linkbtn" data-act="aiClose">Close</button></div>
+  <p class="muted">The game and the 1,000 simulations run without AI. With AI on, a language model writes fresh events, reads your simulation results and writes the story of your five years. Use whichever model you like.</p>
+  <div class="srcs">${opts}</div>${byok}${test}
+  <div class="row"><button type="button" class="btn go" data-act="aiClose">Done</button></div></div></div>`;
+}
+const aiNote=()=>`<p class="ainote mono">${aiReady()?`Using ${esc(aiLabel())}`:'AI is off'} · <button type="button" class="linkbtn" data-act="aiOpen">${aiReady()?'Change':'Set up AI'}</button></p>`;
+
+/* ---------- AI-written events ---------- */
+let aiCtl=null;
+const aiOn=s=>!!(s.profile.ai&&aiReady()&&!s.aiOff);
 const clip=(x,n)=>String(x??'').replace(/\s+/g,' ').trim().slice(0,n);
 function cleanFx(fx){
  const o={};if(!fx||typeof fx!=='object')return o;
@@ -708,17 +860,15 @@ async function requestAiEvent(){
  s.aiBusy=true;s.aiErr=null;
  const stale=()=>state!==s||ctl!==aiCtl||s.ev!=='ai';
  try{
-  const raw=await sampleFn.json(aiPrompt(s),{modelTier:'quick',cache:false,signal:ctl.signal});
+  const raw=await aiJson(aiPrompt(s),{quick:true,signal:ctl.signal});
   if(stale())return;
   const ev=cleanAiEvent(raw);
-  if(!ev){s.aiErr='Claude wrote something the game could not use. Try again, or use a classic event.';return}
+  if(!ev){s.aiErr='The AI wrote something the game could not use. Try again, or use a classic event.';return}
   s.aiEv=ev;s.aiTitles.push(ev.title);
  }catch(e){
   if(stale()||e?.code==='cancelled')return;
-  if(AI_OFF_CODES.includes(e?.code)){s.aiOff=true;s.aiNote='Claude-written events are off for this run, so the classic events take over.';deckEvent();return}
-  s.aiErr=e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit, or use a classic event.'
-   :e?.code==='session_expired'?'Sign in to Claude again to keep getting fresh events, or use a classic event.'
-   :'Claude could not write this moment. Try again, or use a classic event.';
+  if(AI_OFF_CODES.includes(e?.code)){s.aiOff=true;s.aiNote='AI-written events are off for this run, so the classic events take over.';deckEvent();return}
+  s.aiErr=aiErrText(e)+' You can also use a classic event.';
  }finally{
   if(state===s&&ctl===aiCtl){s.aiBusy=false;render()}
  }
@@ -880,7 +1030,7 @@ function analyze(L,profile){
 }
 function percentile(sim,k,v){const d=sim.dist[k];let i=0;while(i<d.length&&d[i]<v)i++;return Math.round(100*i/d.length)}
 
-/* ---------- Claude's read of the simulations ---------- */
+/* ---------- AI read of the simulations ---------- */
 let takeCtl=null;
 const PLAY_RE=/\n?\s*PLAY:\s*([a-z]+)\s+([A-Z]{3})\s*$/;
 function takePrompt(pr,sim){
@@ -888,7 +1038,7 @@ function takePrompt(pr,sim){
  const moves=sim.byOpen.map((g,i)=>`${i+1}. ${PATHS[g.k].name} [id ${g.k}] (${g.n} lives): avg Joy ${Math.round(g.joy)}, median savings ${fmtK(g.cash).replace('−','-')}, burnout ${g.burn}%, avg Clarity ${Math.round(g.clar)}, ended happy ${g.happy}%`).join('\n');
  const cities=sim.byCity.map(g=>`${cityById(g.k).name} [${g.k}]: avg Joy ${Math.round(g.joy)}, median savings ${fmtK(g.cash).replace('−','-')}, burnout ${g.burn}%`).join('\n');
  const reps=sim.reps.map(r=>`${r.label}: ${r.l.stops.map(x=>`${PATHS[x.id].name} in ${cityById(x.city).name}`).join(' → ')} (Joy ${Math.round(r.l.f.joy)}, savings ${fmtK(r.l.f.cash).replace('−','-')})`).join('\n');
- return `You are helping a young person who doesn't know what they want to do next. A life-simulator game just ran 1,000 versions of their next five years. Read the results and tell them what to try first.
+ return `You are helping a young person who doesn't know what they want to do next. A life-simulator game, "Five Year Run", just ran 1,000 versions of their next five years. Read the results and tell them what to try first.
 
 THE PERSON
 ${pr.name}, ${STAGES[pr.stage].label.toLowerCase()}, age ${STAGES[pr.stage].age}, studied ${FIELDS[pr.field]}, ${DEBTS[pr.debt].amt?'$'+DEBTS[pr.debt].amt+'k':'no'} student debt. Says they value most: ${pr.values.map(v=>VALUES[v]).join(' and ')}.
@@ -927,37 +1077,33 @@ async function writeTake(fresh){
  const live=()=>state===s&&ctl===takeCtl;
  const show=t=>t.replace(PLAY_RE,'').replace(/\n?\s*PLAY:[^\n]*$/,'').trim();
  try{
-  const r=await sampleFn(takePrompt(s.profile,sim),{signal:ctl.signal,cache:fresh?false:{gcTime:86400000},onText:({text})=>{if(!live())return;s.take.text=text;const el=document.getElementById('taketext');if(el){el.textContent=show(text);el.classList.remove('muted')}}});
+  const r=await aiText(takePrompt(s.profile,sim),{signal:ctl.signal,cache:!fresh,onText:({text})=>{if(!live())return;s.take.text=text;const el=document.getElementById('taketext');if(el){el.textContent=show(text);el.classList.remove('muted')}}});
   if(!live())return;
   const m=r.text.match(PLAY_RE);
   let play=null;
   if(m&&PATHS[m[1]]&&cityById(m[2])){const p=PATHS[m[1]];play={id:m[1],city:p.city||(p.kind==='gap'&&m[2]==='HOM'?'LIS':m[2])}}
-  s.take={text:show(r.text),busy:false,err:r.truncated?'Claude ran long, so this stops early.':null,play};
+  s.take={text:show(r.text),busy:false,err:r.truncated?'The AI ran long, so this stops early.':null,play};
  }catch(e){
   if(!live())return;
   const off=AI_OFF_CODES.includes(e?.code);
   s.take={text:e?.code==='refused'?'':show(e?.text||''),busy:false,play:null,off,
-   err:e?.code==='cancelled'?null:off?"Claude isn't available on this page, so it can't read the results."
-    :e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit.'
-    :e?.code==='session_expired'?'Sign in to Claude again, then try again.'
-    :'Claude could not finish reading the results. Try again.'};
+   err:e?.code==='cancelled'?null:aiErrText(e)};
  }
  render();
 }
 function vTake(){
  const s=state,t=s.take;
- if(!sampleFn&&!t?.text)return '';
  let body,btns;
- if(!t){body=`<p class="muted">Claude reads all 1,000 results and tells you, in plain words, which first move to try first, what to watch out for, and how to test it in real life this month. It uses your own Claude account.</p>`;btns=`<button class="btn go" data-act="writeTake">Ask Claude what to try first</button>`}
- else if(t.busy){body=`<p class="story-text${t.text?'':' muted'}" id="taketext">${t.text?esc(t.text.replace(PLAY_RE,'')):'Claude is reading your 1,000 lives…'}</p>`;btns=`<button class="btn ghost" data-act="stopTake">Stop</button>`}
+ if(!t||(!t.text&&!t.busy&&!aiReady())){body=`<p class="muted">An AI model reads all 1,000 results and tells you, in plain words, which first move to try first, what to watch out for, and how to test it in real life this month.</p>`;btns=aiReady()?`<button class="btn go" data-act="writeTake">Ask what to try first</button>`:`<button class="btn go" data-act="aiOpen">Set up AI</button>`}
+ else if(t.busy){body=`<p class="story-text${t.text?'':' muted'}" id="taketext">${t.text?esc(t.text.replace(PLAY_RE,'')):`${esc(aiWho())} is reading your 1,000 lives…`}</p>`;btns=`<button class="btn ghost" data-act="stopTake">Stop</button>`}
  else{
   body=`${t.text?`<p class="story-text" id="taketext">${esc(t.text)}</p>`:''}${t.err?`<div class="notice">${esc(t.err)}</div>`:''}`;
-  btns=(t.play?`<button class="btn go" data-act="playOpen" data-id="${t.play.id}" data-city="${t.play.city}">Play it: ${esc(PATHS[t.play.id].name)} in ${esc(cityById(t.play.city).name)}</button>`:'')+(t.off?'':`<button class="btn ghost" data-act="rewriteTake">${t.text?'Ask again':'Try again'}</button>`);
+  btns=(t.play?`<button class="btn go" data-act="playOpen" data-id="${t.play.id}" data-city="${t.play.city}">Play it: ${esc(PATHS[t.play.id].name)} in ${esc(cityById(t.play.city).name)}</button>`:'')+(t.off||!aiReady()?'':`<button class="btn ghost" data-act="rewriteTake">${t.text?'Ask again':'Try again'}</button>`);
  }
- return `<section class="panel take"><h3 class="h-sm">Claude's read: what to try first</h3>${body}<div class="row">${btns}</div></section>`;
+ return `<section class="panel take"><h3 class="h-sm">The AI's read: what to try first</h3>${body}<div class="row">${btns}</div>${aiNote()}</section>`;
 }
 
-/* ---------- Claude-written story ---------- */
+/* ---------- AI-written story ---------- */
 let storyCtl=null;
 function storyPrompt(s){
  const pr=s.profile,top=topValues(s),a=ARCH[top[0]];
@@ -992,17 +1138,14 @@ async function writeStory(fresh){
  s.story={text:'',busy:true,err:null};render();
  const live=()=>state===s&&ctl===storyCtl;
  try{
-  const r=await sampleFn(storyPrompt(s),{signal:ctl.signal,cache:fresh?false:{gcTime:86400000},onText:({text})=>{if(!live())return;s.story.text=text;const el=document.getElementById('storytext');if(el){el.textContent=text;el.classList.remove('muted')}}});
+  const r=await aiText(storyPrompt(s),{signal:ctl.signal,cache:!fresh,onText:({text})=>{if(!live())return;s.story.text=text;const el=document.getElementById('storytext');if(el){el.textContent=text;el.classList.remove('muted')}}});
   if(!live())return;
-  s.story={text:r.text,busy:false,err:r.truncated?'Claude ran long, so the story stops early.':null};
+  s.story={text:r.text,busy:false,err:r.truncated?'The AI ran long, so the story stops early.':null};
  }catch(e){
   if(!live())return;
   const kept=e?.code==='refused'?'':(e?.text||'');
   const err=e?.code==='cancelled'?null
-   :AI_OFF_CODES.includes(e?.code)?'Claude is not available on this page, so the story could not be written.'
-   :e?.code==='rate_limited'?'Claude is busy, or you have reached a usage limit. Try again in a bit.'
-   :e?.code==='session_expired'?'Sign in to Claude again, then try again.'
-   :'Claude could not finish the story. Try again.';
+   :aiErrText(e);
   s.story={text:kept,busy:false,err,off:AI_OFF_CODES.includes(e?.code)};
  }
  render();
@@ -1016,12 +1159,11 @@ function vVsSims(s){
 }
 function vStory(){
  const s=state,st=s.story;
- if(!sampleFn&&!st?.text)return '';
  let body,btns;
- if(!st){body=`<p class="muted">Claude can turn everything you chose into a short story of these five years: the turning point, the hard year, and what it all suggests about you. It uses your own Claude account.</p>`;btns=`<button class="btn go" data-act="writeStory">Write my story</button>`}
- else if(st.busy){body=`<p class="story-text${st.text?'':' muted'}" id="storytext">${st.text?esc(st.text):'Claude is reading back through your five years…'}</p>`;btns=`<button class="btn ghost" data-act="stopStory">Stop</button>`}
- else{body=`${st.text?`<p class="story-text" id="storytext">${esc(st.text)}</p>`:''}${st.err?`<div class="notice">${esc(st.err)}</div>`:''}`;btns=st.off?'':`<button class="btn ghost" data-act="rewriteStory">${st.text?'Write it again':'Try again'}</button>${st.text?'<button class="btn ghost" data-act="copyStory" id="copybtn">Copy</button>':''}`}
- return `<section class="panel"><h3 class="h-sm">Your story</h3>${body}<div class="row">${btns}</div></section>`;
+ if(!st||(!st.text&&!st.busy&&!aiReady())){body=`<p class="muted">An AI model can turn everything you chose into a short story of these five years: the turning point, the hard year, and what it all suggests about you.</p>`;btns=aiReady()?`<button class="btn go" data-act="writeStory">Write my story</button>`:`<button class="btn go" data-act="aiOpen">Set up AI</button>`}
+ else if(st.busy){body=`<p class="story-text${st.text?'':' muted'}" id="storytext">${st.text?esc(st.text):`${esc(aiWho())} is reading back through your five years…`}</p>`;btns=`<button class="btn ghost" data-act="stopStory">Stop</button>`}
+ else{body=`${st.text?`<p class="story-text" id="storytext">${esc(st.text)}</p>`:''}${st.err?`<div class="notice">${esc(st.err)}</div>`:''}`;btns=st.off||!aiReady()?'':`<button class="btn ghost" data-act="rewriteStory">${st.text?'Write it again':'Try again'}</button>${st.text?'<button class="btn ghost" data-act="copyStory" id="copybtn">Copy</button>':''}`}
+ return `<section class="panel"><h3 class="h-sm">Your story</h3>${body}<div class="row">${btns}</div>${aiNote()}</section>`;
 }
 
 /* ---------- actions ---------- */
@@ -1053,7 +1195,17 @@ const ACT={
  clearLives(){saveLives([]);state.confirmClear=false;render()},
  aiRetry(){requestAiEvent();render()},
  deckNow(){const s=state;aiCtl?.abort();aiCtl=null;s.aiBusy=false;s.aiErr=null;deckEvent();render()},
- setAi(ds){state.draft.ai=ds.v==='on';render()},
+ setAi(ds){state.draft.ai=ds.v==='on';if(state.draft.ai&&!aiReady())AI.panel=true;render()},
+ aiOpen(){AI.panel=true;AI.test=null;render();document.querySelector('.sheet .srcopt[aria-pressed=true]')?.focus()},
+ aiClose(){AI.panel=false;render()},
+ aiMode(ds){AI.cfg.mode=ds.v;if(ds.v==='byok'&&!AI.cfg.preset)Object.assign(AI.cfg,{preset:'openai',base:PRESETS[0].base,model:PRESETS[0].model});AI.test=null;saveAiCfg();render()},
+ async aiTest(){
+  const out=()=>document.getElementById('aitest');
+  AI.test='Testing…';if(out())out().textContent=AI.test;
+  try{const r=await aiText('This is a connection test from the game "Five Year Run". Reply with exactly: OK',{quick:true,maxTokens:20});AI.test=`Working. ${aiWho()} replied: ${r.text.trim().slice(0,40)}`}
+  catch(e){AI.test=aiErrText(e)}
+  if(out())out().textContent=AI.test;
+ },
  writeTake(){writeTake(false)},
  rewriteTake(){writeTake(true)},
  stopTake(){takeCtl?.abort()},
@@ -1113,7 +1265,7 @@ function deltaChips(d){return `<div class="deltas">${Object.entries(d).map(([k,v
 
 function vTitle(){
  const lives=loadLives();
- return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div></header>
+ return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="aiOpen">AI settings</button></header>
  <section class="hero"><p class="kicker">A life simulator for people at a fork in the road</p>
   <h1>Don't know what you want? <span>We'll run your next five years 1,000 times.</span></h1>
   <p class="lede">Answer four questions. We simulate 1,000 versions of you across 20 first moves and 11 cities: jobs, gap years and master's degrees. Then we show you what we found: what made you happiest, what paid best, what burned you out. Then you play the lives that look interesting.</p>
@@ -1123,7 +1275,7 @@ function vTitle(){
   <div><b>STEP 1</b><strong>Tell us about you</strong><p>Where you are, what you studied, your debt, what you think matters.</p></div>
   <div><b>STEP 2</b><strong>We run 1,000 lives</strong><p>Every first move and city, five years each, with the same events, odds and money math as the game.</p></div>
   <div><b>STEP 3</b><strong>See what we found</strong><p>Your happiest and richest starts, your burnout risks, and what your best lives had in common.</p></div>
-  <div><b>STEP 4</b><strong>Play the ones you like</strong><p>Live a promising life yourself, with events written fresh by Claude, and see if it holds up.</p></div>
+  <div><b>STEP 4</b><strong>Play the ones you like</strong><p>Live a promising life yourself, with events written fresh by any AI model you choose, and see if it holds up.</p></div>
  </section>
  ${lives.length?vMultiverse(lives):''}`;
 }
@@ -1140,8 +1292,8 @@ function vSetup(){
   <div class="field"><span class="q">What did you study?</span><p class="hint">Fields that fit a job give you better odds when you apply.</p><div class="chips">${chips('field',FIELDS)}</div></div>
   <div class="field"><span class="q">Student debt?</span><div class="chips">${chips('debt',DEBTS)}</div></div>
   <div class="field"><span class="q">Pick the two things you think matter most to you</span><p class="hint">Your 1,000 simulated selves will choose the way these values suggest. When you play a life yourself, we'll check whether your real choices agree. (${d.values.length}/2 picked)</p><div class="chips">${vals}</div></div>
-  <div class="field"><span class="q">When you play a life yourself, who writes the events?</span><p class="hint">${sampleFn?'Claude can write each moment fresh from your character, path, city and earlier choices, so no two runs match. This uses your own Claude account, and Claude asks you to allow it the first time.':'Claude-written events work when this page is opened on claude.ai. Here you get the classic set of events.'}</p>
-   <div class="chips"><button type="button" class="chip" data-act="setAi" data-v="on" aria-pressed="${!!(d.ai&&sampleFn)}" ${sampleFn?'':'disabled'}>Claude writes them fresh</button><button type="button" class="chip" data-act="setAi" data-v="off" aria-pressed="${!(d.ai&&sampleFn)}">Classic events</button></div></div>
+  <div class="field"><span class="q">When you play a life yourself, who writes the events?</span><p class="hint">An AI model can write each moment fresh from your character, path, city and earlier choices, so no two runs match. Use any model you like.</p>
+   <div class="chips"><button type="button" class="chip" data-act="setAi" data-v="on" aria-pressed="${!!(d.ai&&aiReady())}">AI writes them fresh</button><button type="button" class="chip" data-act="setAi" data-v="off" aria-pressed="${!(d.ai&&aiReady())}">Built-in events</button></div>${aiNote()}</div>
   <div class="row"><button class="btn go" data-act="begin" ${d.values.length<2?'disabled':''}>Run my 1,000 simulations</button><button type="button" class="linkbtn" data-act="skipSims" ${d.values.length<2?'disabled':''}>Skip and play one life</button></div>
  </form>`;
 }
@@ -1196,12 +1348,12 @@ function vEvent(){
  if(s.ev==='ai'&&!ev){
   const body=s.aiErr?`<p class="txt">${esc(s.aiErr)}</p><div class="row"><button class="btn go" data-act="aiRetry">Try again</button><button class="btn ghost" data-act="deckNow">Use a classic event</button></div>`
    :`<p class="txt muted">Writing something for ${esc(s.profile.name)} in ${esc(cityOf(s).name)}, based on your path, your stats and what you chose before.</p><div class="writing" aria-hidden="true"><i></i><i></i><i></i></div><div class="row"><button class="linkbtn" data-act="deckNow">Skip and use a classic event</button></div>`;
-  return `${hud()}${note}<article class="event" aria-live="polite" aria-busy="${!s.aiErr}">${head} · Written by Claude</p><h2 style="font-size:clamp(26px,4.5vw,36px);font-weight:800;line-height:1.05">${s.aiErr?'That one did not come through':'Claude is writing your next moment'}</h2>${body}</article>`;
+  return `${hud()}${note}<article class="event" aria-live="polite" aria-busy="${!s.aiErr}">${head} · Written by ${esc(aiWho())}</p><h2 style="font-size:clamp(26px,4.5vw,36px);font-weight:800;line-height:1.05">${s.aiErr?'That one did not come through':`${esc(aiWho())} is writing your next moment`}</h2>${body}</article>`;
  }
  const chs=ev.ch.map((c,i)=>{const odds=c.roll?`<span class="odds">Risky: about ${Math.round(clamp(val(c.roll.p,s),0.05,0.95)*100)}% chance it goes well</span>`:'';
   return `<button class="choice" data-act="choose" data-i="${i}"><span class="ltr">${'ABC'[i]}</span><span>${esc(c.t)}${odds}</span></button>`}).join('');
  const outcome=o?`<div class="outcome" id="outcome"><p class="you">You chose: ${esc(o.choice)}</p>${o.roll?`<span class="rollnote ${o.roll.win?'win':'lose'}">${o.roll.win?'It worked':'It didn\'t work out'} · rolled ${o.roll.r}, needed ${o.roll.p} or lower</span>`:''}<p class="res">${esc(o.out)}</p>${deltaChips(o.d)}<div class="row"><button class="btn go" data-act="next">${s.step===0?'Next moment':`Finish year ${s.year}`}</button></div></div>`:'';
- return `${hud()}${note}<article class="event" aria-live="polite">${head}${FORCED.some(f=>f.id===ev.id)?' · Uh-oh':''}${ev.ai?' · Written by Claude':''}</p>
+ return `${hud()}${note}<article class="event" aria-live="polite">${head}${FORCED.some(f=>f.id===ev.id)?' · Uh-oh':''}${ev.ai?` · Written by ${esc(aiWho())}`:''}</p>
   <h2 style="font-size:clamp(26px,4.5vw,36px);font-weight:800;line-height:1.05">${esc(val(ev.title,s))}</h2><p class="txt">${esc(val(ev.text,s))}</p>
   ${o?'':`<div class="choices">${chs}</div>`}${outcome}</article>`;
 }
@@ -1320,10 +1472,17 @@ function vResults(){
 
 function render(){
  const v={title:vTitle,setup:vSetup,simming:vSimming,results:vResults,path:vPath,city:vCity,apply:vApply,event:vEvent,yearEnd:vYearEnd,cross:vCross,ending:vEnding}[state.screen]||vTitle;
- app.innerHTML=v();
+ app.innerHTML=v()+(AI.panel?vAiPanel():'');
 }
 app.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const f=ACT[el.dataset.act];if(f){e.preventDefault();f(el.dataset)}});
-app.addEventListener('input',e=>{if(e.target.id==='nm'&&state.draft)state.draft.name=e.target.value});
+app.addEventListener('input',e=>{
+ const id=e.target.id;
+ if(id==='nm'&&state.draft)state.draft.name=e.target.value;
+ const k={aibase:'base',aimodel:'model',aikey:'key'}[id];
+ if(k){AI.cfg[k]=e.target.value.trim();AI.test=null;saveAiCfg();const b=document.querySelector('[data-act=aiTest]'),t=document.getElementById('aitest');if(b)b.disabled=!aiReady();if(t)t.textContent=aiReady()?'':'Fill in the fields above to turn AI on.'}
+});
+app.addEventListener('change',e=>{if(e.target.id==='aipreset'){const p=presetOf(e.target.value);Object.assign(AI.cfg,{preset:p.id,base:p.base,model:p.model});AI.test=null;saveAiCfg();render();document.getElementById('aipreset')?.focus()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&AI.panel){AI.panel=false;render()}});
 
 window.claude?.hot?.snapshot?.(()=>({state,lastSim}));
 function start(data){
@@ -1331,11 +1490,13 @@ function start(data){
  if(data&&data.lastSim)lastSim=data.lastSim;
  if(state.screen==='simming')state={screen:lastSim?'results':'title',profile:state.profile};
  if(state.screen==='results'&&!lastSim)state={screen:'title',profile:state.profile};
- if(state.aiBusy){state.aiBusy=false;if(!state.aiEv)state.aiErr='The page reloaded while Claude was writing. Try again, or use a classic event.'}
- if(state.take?.busy){state.take.busy=false;state.take.err='The page reloaded while Claude was writing. Try again.'}
- if(state.story?.busy){state.story.busy=false;state.story.err='The page reloaded while Claude was writing. Try again.'}
+ if(state.aiBusy){state.aiBusy=false;if(!state.aiEv)state.aiErr='The page reloaded while the AI was writing. Try again, or use a classic event.'}
+ if(state.take?.busy){state.take.busy=false;state.take.err='The page reloaded while the AI was writing. Try again.'}
+ if(state.story?.busy){state.story.busy=false;state.story.err='The page reloaded while the AI was writing. Try again.'}
  render();
- window.claude?.use?.('sample').then(f=>{sampleFn=f||null;if(['setup','title','ending','results'].includes(state.screen))render()}).catch(()=>{});
+ const refresh=()=>{if(['setup','title','ending','results'].includes(state.screen)||AI.panel)render()};
+ window.claude?.use?.('sample').then(f=>{AI.host=f||null;refresh()}).catch(()=>{});
+ if(!AI.inArtifact&&/^https?:$/.test(location.protocol))fetch('/api/ai').then(r=>r.ok?r.json():null).then(j=>{if(j?.enabled){AI.server={label:j.label||''};refresh()}}).catch(()=>{});
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
