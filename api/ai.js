@@ -66,6 +66,8 @@ export default async function handler(req) {
 
   if (!upstream) return json({ error: 'upstream_unreachable' }, 502);
   if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => '');
+    console.error(`AI upstream ${upstream.status}: ${detail.slice(0, 500)}`);
     const status = upstream.status === 429 ? 429 : 502;
     return json({ error: 'upstream', status: upstream.status }, status);
   }
