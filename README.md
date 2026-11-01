@@ -1,6 +1,6 @@
 # Five Year Run
 
-Live at https://five-year-run.vercel.app
+Live at https://1000-lives.vercel.app
 
 A free simulation tool for people who don't know what they want yet, to learn what's possible when choosing a first job, a gap year or a master's.
 
