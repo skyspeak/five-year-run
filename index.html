@@ -1044,7 +1044,7 @@ THE PERSON
 ${pr.name}, ${STAGES[pr.stage].label.toLowerCase()}, age ${STAGES[pr.stage].age}, studied ${FIELDS[pr.field]}, ${DEBTS[pr.debt].amt?'$'+DEBTS[pr.debt].amt+'k':'no'} student debt. Says they value most: ${pr.values.map(v=>VALUES[v]).join(' and ')}.
 
 HOW THE SIMULATION WORKS
-Each simulated life picked a random first move and city, then made choices leaning toward the values above. Outcomes are on 0-100 scales (Joy, Clarity, Energy) plus savings in dollars at age ${age}. It is a game model with made-up but plausible numbers, not a forecast.
+Each simulated life picked a random first move and city, then made choices leaning toward the values above. Outcomes are on 0-100 scales (Joy, Clarity, Energy) plus savings in dollars at age ${age}. Savings are net: student debt is already counted in them, so a negative number means they still owe that much in total. It is a game model with made-up but plausible numbers, not a forecast.
 
 OVERALL (1,000 lives)
 ${a.happy}% ended happy (Joy 70+). Median savings ${fmtK(a.cash).replace('−','-')}. ${a.burn}% burned out at least once. Average Clarity ${Math.round(a.clar)}.
@@ -1122,7 +1122,7 @@ THE FIVE YEARS
 ${years}
 
 END STATE (age ${s.age})
-Savings ${fmtK(s.stats.cash).replace('−','-')}. Skills ${Math.round(s.stats.skill)}, Joy ${Math.round(s.stats.joy)}, Energy ${Math.round(s.stats.energy)}, Network ${Math.round(s.stats.network)}, Clarity ${Math.round(s.stats.clarity)} (out of 100). Badges: ${badges}.
+Savings ${fmtK(s.stats.cash).replace('−','-')} (net: student debt is already counted). Skills ${Math.round(s.stats.skill)}, Joy ${Math.round(s.stats.joy)}, Energy ${Math.round(s.stats.energy)}, Network ${Math.round(s.stats.network)}, Clarity ${Math.round(s.stats.clarity)} (out of 100). Badges: ${badges}.
 
 HOW TO WRITE IT
 - 180 to 250 words in 2 or 3 short paragraphs. Second person ("you"), past tense. Plain prose: no title, no headings, no lists, no markdown.
