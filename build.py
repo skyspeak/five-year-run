@@ -9,7 +9,7 @@ root = Path(__file__).parent
 body = (root / "artifact.html").read_text()
 head = """<!doctype html>
 <html lang="en">
-<meta name="description" content="Don't know what you want? Five Year Run simulates 1,000 versions of your next five years across first jobs, gap years, master's degrees and cities, shows what it found, then lets you play the most promising lives yourself.">
+<meta name="description" content="A free simulation tool for seeing what's possible. Five Year Run simulates 1,000 versions of your next five years across first jobs, gap years, master's degrees and cities, shows what it found, then lets you play the most promising lives yourself.">
 <meta property="og:title" content="Five Year Run">
 <meta property="og:description" content="We ran 1,000 versions of your next five years. Here's what we found.">
 <meta name="theme-color" content="#121A2B">

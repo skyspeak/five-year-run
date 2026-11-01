@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<meta name="description" content="Don't know what you want? Five Year Run simulates 1,000 versions of your next five years across first jobs, gap years, master's degrees and cities, shows what it found, then lets you play the most promising lives yourself.">
+<meta name="description" content="A free simulation tool for seeing what's possible. Five Year Run simulates 1,000 versions of your next five years across first jobs, gap years, master's degrees and cities, shows what it found, then lets you play the most promising lives yourself.">
 <meta property="og:title" content="Five Year Run">
 <meta property="og:description" content="We ran 1,000 versions of your next five years. Here's what we found.">
 <meta name="theme-color" content="#121A2B">
@@ -261,6 +261,8 @@ table.rank tr.lead td:first-child{font-weight:600}
 .take{border:2px solid var(--go)}
 .ainote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ainote .linkbtn{font-size:12px;padding:0}
+.freenote{font-size:15px;max-width:58ch;color:var(--muted)}
+.freenote strong{color:var(--ink)}
 .aiprivacy{font-size:13px;color:var(--muted);max-width:62ch}
 .modal{position:fixed;inset:0;z-index:20;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(4px);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
 .sheet{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:22px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
@@ -1267,9 +1269,10 @@ function deltaChips(d){return `<div class="deltas">${Object.entries(d).map(([k,v
 function vTitle(){
  const lives=loadLives();
  return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="aiOpen">AI settings</button></header>
- <section class="hero"><p class="kicker">A life simulator for people at a fork in the road</p>
+ <section class="hero"><p class="kicker">A free simulation tool for people at a fork in the road</p>
   <h1>Don't know what you want? <span>We'll run your next five years 1,000 times.</span></h1>
   <p class="lede">Answer four questions. We simulate 1,000 versions of you across 20 first moves and 11 cities: jobs, gap years and master's degrees. Then we show you what we found: what made you happiest, what paid best, what burned you out. Then you play the lives that look interesting.</p>
+  <p class="freenote"><strong>Free, with no sign-up.</strong> Use it to learn what's possible and what each choice could lead to. It's a simulation with estimated numbers, not a prediction or professional advice.</p>
   <div class="row"><button class="btn go" data-act="toSetup">Run my 1,000 lives</button>${lastSim&&state.profile&&lastSim.key===profileKey(state.profile)?'<button class="btn ghost" data-act="showResults">See what we found</button>':''}${lives.length?`<a class="btn ghost" href="#lives">Your ${lives.length} li${lives.length>1?'ves':'fe'} so far</a>`:''}</div></section>
  <section class="panel"><h2 class="h-sm">Three of the thousand ways the next five years could go</h2>${routeSVG(EXAMPLES)}${legend}</section>
  <section class="steps">
@@ -1455,7 +1458,7 @@ function vResults(){
  return `<header class="top"><div class="brand"><span class="bullet">5Y</span>Five Year Run</div><button class="linkbtn" data-act="toSetup">Change my answers</button></header>
  <section class="verdict"><p class="kicker">${esc(pr.name)} · ${STAGES[pr.stage].label.toLowerCase()} · ${FIELDS[pr.field]} · values ${pr.values.map(v=>VALUES[v]).join(' + ')}</p>
   <h2 class="found">We ran 1,000 versions of your next five years. <span>Here's what we found.</span></h2>
-  <p class="lede">Every simulated ${esc(pr.name)} started from where you are now, picked a random first move and city, and made choices leaning toward ${pr.values.map(v=>VALUES[v]).join(' and ')}, the way you said you would.</p></section>
+  <p class="lede">Every simulated ${esc(pr.name)} started from where you are now, picked a random first move and city, and made choices leaning toward ${pr.values.map(v=>VALUES[v]).join(' and ')}, the way you said you would. This is a free tool for seeing what's possible, built on estimated numbers. It can't predict your actual life.</p></section>
  <section class="tiles">${tiles.map(t=>`<div><b>${t[0]}</b><span>${t[1]}</span></div>`).join('')}</section>
  ${vTake()}
  <section class="findings">${sim.F.map(f=>`<div class="panel"><h3>${esc(f.h)}</h3><p>${esc(f.p)}</p></div>`).join('')}</section>

@@ -1,6 +1,8 @@
 # Five Year Run
 
-A life simulator for people who don't know what they want yet: choosing a first job, a gap year or a master's.
+Live at https://five-year-run.vercel.app
+
+A free simulation tool for people who don't know what they want yet, to learn what's possible when choosing a first job, a gap year or a master's.
 
 Answer four questions and it runs 1,000 versions of your next five years across 20 first moves and 11 cities, using the same events, odds and money math as the game. Then it shows what it found: your happiest and richest starts, burnout risks, and what your best lives had in common. Then you play the promising lives yourself.
 
