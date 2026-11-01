@@ -11,6 +11,8 @@
 //   AI_LABEL        optional name shown to players (defaults to AI_MODEL)
 //   AI_MAX_TOKENS   optional reply cap, default 900, at most 1500
 //   AI_NO_KEY       set to 1 only for a server that needs no key
+//   AI_EXTRA_BODY   optional JSON merged into the request, for provider-specific options
+//                   e.g. OpenRouter fallbacks: {"models":["a:free","b:free"],"reasoning":{"enabled":false}}
 //
 // Every request costs the site owner money. The checks below stop casual reuse
 // (same-site origin, game prompts only, size caps) but are not real rate limiting.
@@ -49,6 +51,13 @@ export default async function handler(req) {
     return json({ error: 'bad_prompt' }, 400);
   }
 
+  let extra = {};
+  try {
+    extra = JSON.parse(env.AI_EXTRA_BODY || '{}');
+  } catch {
+    console.error('AI_EXTRA_BODY is not valid JSON');
+  }
+
   const cap = Math.min(Number(env.AI_MAX_TOKENS) || 900, 1500);
   const upstream = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -61,6 +70,7 @@ export default async function handler(req) {
       messages: [{ role: 'user', content: prompt }],
       stream: true,
       max_tokens: Math.min(Number(body.maxTokens) || cap, cap),
+      ...extra,
     }),
   }).catch(() => null);
 
