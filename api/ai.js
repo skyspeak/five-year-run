@@ -11,6 +11,7 @@
 //   AI_LABEL        optional name shown to players (defaults to AI_MODEL)
 //   AI_MAX_TOKENS   optional reply cap, default 900, at most 1500
 //   AI_NO_KEY       set to 1 only for a server that needs no key
+//   AI_NOTICE       optional privacy note shown to players, describing this provider's data use
 //   AI_EXTRA_BODY   optional JSON merged into the request, for provider-specific options
 //                   e.g. OpenRouter fallbacks: {"models":["a:free","b:free"],"reasoning":{"enabled":false}}
 //
@@ -33,7 +34,7 @@ export default async function handler(req) {
   const model = env.AI_MODEL;
   const enabled = Boolean(model && (env.AI_API_KEY || env.AI_NO_KEY === '1'));
 
-  if (req.method === 'GET') return json({ enabled, label: enabled ? env.AI_LABEL || model : null });
+  if (req.method === 'GET') return json({ enabled, label: enabled ? env.AI_LABEL || model : null, notice: enabled ? env.AI_NOTICE || null : null });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   if (!enabled) return json({ error: 'not_configured' }, 503);
 

@@ -254,6 +254,7 @@ table.rank tr.lead td:first-child{font-weight:600}
 .take{border:2px solid var(--go)}
 .ainote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ainote .linkbtn{font-size:12px;padding:0}
+.aiprivacy{font-size:13px;color:var(--muted);max-width:62ch}
 .modal{position:fixed;inset:0;z-index:20;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(4px);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
 .sheet{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:22px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .srcs{display:flex;flex-direction:column;gap:8px}
@@ -775,7 +776,7 @@ function vAiPanel(){
   server:'Set up by whoever runs this site. Nothing to configure.',
   byok:'Any OpenAI-compatible service: OpenAI, OpenRouter, Google Gemini, Anthropic, Groq, Mistral, DeepSeek, or a model on your own computer with Ollama or LM Studio.',
   off:'Built-in events only. The simulations and the game still work.'};
- const opts=[...aiSources(),'off'].map(k=>`<button type="button" class="srcopt" data-act="aiMode" data-v="${k}" aria-pressed="${cur===k}"><strong>${label[k]}</strong><span>${desc[k]}</span></button>`).join('');
+ const opts=[...aiSources(),'off'].map(k=>`<button type="button" class="srcopt" data-act="aiMode" data-v="${k}" aria-pressed="${cur===k}"><strong>${label[k]}</strong><span>${desc[k]}${k==='server'&&AI.server?.notice?' '+esc(AI.server.notice):''}</span></button>`).join('');
  const pre=presetOf(c.preset);
  const byok=cur==='byok'&&!AI.inArtifact?`<div class="aiform">
   <label for="aipreset">Service</label><select id="aipreset" class="input">${PRESETS.map(p=>`<option value="${p.id}" ${p.id===pre.id?'selected':''}>${p.name}</option>`).join('')}</select>
@@ -790,7 +791,7 @@ function vAiPanel(){
   <div class="srcs">${opts}</div>${byok}${test}
   <div class="row"><button type="button" class="btn go" data-act="aiClose">Done</button></div></div></div>`;
 }
-const aiNote=()=>`<p class="ainote mono">${aiReady()?`Using ${esc(aiLabel())}`:'AI is off'} · <button type="button" class="linkbtn" data-act="aiOpen">${aiReady()?'Change':'Set up AI'}</button></p>`;
+const aiNote=()=>`<p class="ainote mono">${aiReady()?`Using ${esc(aiLabel())}`:'AI is off'} · <button type="button" class="linkbtn" data-act="aiOpen">${aiReady()?'Change':'Set up AI'}</button></p>${aiProvider()==='server'&&AI.server.notice?`<p class="aiprivacy">${esc(AI.server.notice)}</p>`:''}`;
 
 /* ---------- AI-written events ---------- */
 let aiCtl=null;
@@ -1489,7 +1490,7 @@ function start(data){
  render();
  const refresh=()=>{if(['setup','title','ending','results'].includes(state.screen)||AI.panel)render()};
  window.claude?.use?.('sample').then(f=>{AI.host=f||null;refresh()}).catch(()=>{});
- if(!AI.inArtifact&&/^https?:$/.test(location.protocol))fetch('/api/ai').then(r=>r.ok?r.json():null).then(j=>{if(j?.enabled){AI.server={label:j.label||''};refresh()}}).catch(()=>{});
+ if(!AI.inArtifact&&/^https?:$/.test(location.protocol))fetch('/api/ai').then(r=>r.ok?r.json():null).then(j=>{if(j?.enabled){AI.server={label:j.label||'',notice:j.notice||''};refresh()}}).catch(()=>{});
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>

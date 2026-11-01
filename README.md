@@ -25,6 +25,7 @@ Set these in the Vercel project settings, then redeploy:
 | `AI_LABEL` | Optional name shown to players |
 | `AI_MAX_TOKENS` | Optional reply cap (default 900, max 1500) |
 | `AI_NO_KEY` | Set to `1` only for a server that needs no key |
+| `AI_NOTICE` | Optional privacy note shown to players. Update it whenever you change provider or plan |
 | `AI_EXTRA_BODY` | Optional JSON merged into each request for provider-specific options, such as OpenRouter fallback models |
 
 Every request is billed to that key. The proxy accepts only same-site requests carrying the game's own prompts, with size caps, but it has no real rate limiting, so set a spending limit with your provider.
